@@ -1,7 +1,7 @@
 <h1 align="center">yt-dlp-tauri</h1>
 
 <p align="center">
-  <strong>一个由 yt-dlp 和 Tauri 2 驱动的轻量 Windows 桌面下载器。</strong>
+  <strong>一个由 yt-dlp 和 Tauri 2 驱动的轻量 Windows 与 macOS 桌面下载器。</strong>
 </p>
 
 <p align="center">
@@ -18,6 +18,7 @@
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-typed-3178C6?logo=typescript" />
   <img alt="Vite" src="https://img.shields.io/badge/Vite-build-646CFF?logo=vite" />
   <img alt="Windows" src="https://img.shields.io/badge/Windows-desktop-0078D4?logo=windows" />
+  <img alt="macOS" src="https://img.shields.io/badge/macOS-desktop-000000?logo=apple" />
 </p>
 
 <p align="center">
@@ -37,10 +38,10 @@
 - 通过 `yt-dlp` 解析视频信息，并预览标题、封面、时长、来源 URL、描述和清晰度选项。
 - 下载时显示实时进度、速度、ETA，支持取消，并保存输出目录。
 - 为需要登录态的站点选择 Cookie 文件，支持 Netscape `cookies.txt` 和一行浏览器 Cookie 请求头。
-- 在 Settings 中安装、更新、重新安装和校验应用管理的完整工具链 revision。
-- 可在应用管理工具链与可信本地工具之间切换，本地工具支持从 `PATH` 检测或使用绝对路径选择。
-- 从项目托管的不可变 GitHub Release 资产解析 stable 工具链。
-- 完整 staging 并校验所有工具后再原子激活，更新失败时保留当前可用 revision。
+- 在 Settings 中安装、更新、重新安装和校验受管工具：Windows 使用项目托管归档，macOS 使用已有的 Homebrew 安装。
+- 可在受管工具与可信自定义工具之间切换，自定义工具支持从平台搜索路径检测或使用绝对路径选择。
+- 从项目托管的不可变 GitHub Release 资产解析 Windows stable 工具链。
+- 完整 staging 并校验所有 Windows 归档工具后再原子激活，更新失败时保留当前可用 revision。
 - 支持中英文界面切换。
 - 检查 GitHub Releases 中的应用更新，并可为更新检查和 release 链接启用 `gh-proxy`。
 - 写入本地运行日志，方便查看最近的应用事件。
@@ -53,27 +54,61 @@
 | 后端 | Rust |
 | 前端 | Vanilla TypeScript, Vite |
 | UI | 固定尺寸的产品型桌面界面 |
-| 工具链 | 应用管理或用户选择的 Windows x64 `yt-dlp`、`ffmpeg`、`ffprobe`、`deno` |
-| 安装包 | Windows x64 NSIS |
+| 工具链 | 项目管理的 Windows x64 归档、macOS Homebrew formula，或可信的自定义 `yt-dlp`、`ffmpeg`、`ffprobe`、`deno` 可执行文件 |
+| 构建产物 | Windows x64 NSIS；本地 macOS `.app` 与 `.dmg` |
 
 ## 快速开始
 
-真实应用构建请在 Windows 上执行。WSL 可以跑很多检查，发布安装包应在 Windows 上构建，或交给 GitHub Actions release workflow。
+应用包含 Windows x64、macOS Apple Silicon 和 macOS Intel 的运行时定义。公开发布的 release 和项目托管归档工具仍仅支持 Windows；macOS 用户从源码构建本地开发产物。
 
-### 1. 安装系统依赖
+### macOS
+
+#### 1. 安装系统依赖
+
+- Apple Silicon 或 Intel macOS
+- Node.js 24+
+- Rust stable，安装对应平台 toolchain
+- 在你自己的控制下安装的 [Homebrew](https://brew.sh/)
+
+如果尚未安装 Homebrew，请在你自己的控制下从 `https://brew.sh/` 安装。应用不会安装 Homebrew，也不会运行它的远程 bootstrap 脚本。然后安装 formula：
+
+```bash
+brew install yt-dlp ffmpeg deno
+```
+
+#### 2. 安装依赖并运行或构建
+
+```bash
+npm ci
+npm run tauri dev
+npm run tauri build
+```
+
+本地 macOS bundle 位于：
+
+```text
+src-tauri/target/release/bundle/macos/
+src-tauri/target/release/bundle/dmg/
+```
+
+这些本地 `.app` 和 `.dmg` bundle 未签名且未经过 notarization。macOS 可能阻止打开，直到你在系统安全设置中明确允许打开。项目不发布 macOS release 产物。
+
+### Windows
+
+#### 1. 安装系统依赖
 
 - Windows 10/11 x64 + WebView2 Runtime
 - Node.js 24+
 - Rust stable，安装对应平台 toolchain
-- Windows 上需要 PowerShell 5+ 或 PowerShell 7+
+- PowerShell 5+ 或 PowerShell 7+
 
-### 2. 安装依赖
+#### 2. 安装依赖
 
 ```powershell
 npm ci
 ```
 
-### 3. 可选：还原开发工具链
+#### 3. 可选：还原开发工具链
 
 ```powershell
 .\scripts\download-tools.ps1
@@ -81,19 +116,19 @@ npm ci
 
 普通使用不需要先执行这个脚本。如果应用检测到工具缺失，打开应用，进入 Settings，点击 `Install tools` 即可。
 
-### 4. 开发运行桌面应用
+#### 4. 开发运行桌面应用
 
 ```powershell
 npm run tauri dev
 ```
 
-### 5. 构建桌面安装包
+#### 5. 构建桌面安装包
 
 ```powershell
 npm run tauri build
 ```
 
-当前配置的 bundle target 是 `nsis`。构建产物位于：
+Windows 配置的 bundle target 是 `nsis`。构建产物位于：
 
 ```text
 src-tauri\target\release\bundle\nsis\
@@ -113,16 +148,21 @@ src-tauri\target\release\bundle\nsis\
 | Settings: GitHub site | 为更新检查和 release 链接选择 `Direct` 或 `gh-proxy`。项目主页始终直连 GitHub。 |
 | Settings: tool source | 在经过验证的应用管理 revision 与可信本地可执行文件之间切换。 |
 
-当前发布范围：
+当前平台范围：
 
-- 支持的工具 target：`win-x64`。
-- 仓库不提交工具二进制。
+- 运行时定义支持 `win-x64`、`macos-arm64` 和 `macos-x64`。
+- 项目托管归档工具和公开发布的应用 release 仍仅支持 Windows。
+- 仓库不提交工具二进制，macOS Homebrew 工具也绝不会复制到应用 bundle 或 checkout 中。
 
-## 本地工具模式
+## 受管与自定义工具模式
 
-Settings 可将完整工具链切换为 `应用管理` 或 `本地工具`。本地模式会在当前进程的 `PATH` 中查找 `yt-dlp.exe`、`deno.exe`，并查找同时包含 `ffmpeg.exe` 和 `ffprobe.exe` 的目录。工具不在 `PATH` 中时，可以分别选择 yt-dlp 可执行文件、FFmpeg 目录和 Deno 可执行文件的绝对路径。`使用 PATH` 会清除这些覆盖路径，再次从 `PATH` 解析全部工具。
+在 Windows 上，Settings 将工具来源显示为 `应用管理` 和 `本地工具`。应用管理模式使用经过验证的项目托管 Windows 归档 revision。本地工具模式会在继承的 `PATH` 中查找 `yt-dlp.exe`、`deno.exe`，并查找同时包含 `ffmpeg.exe` 和 `ffprobe.exe` 的目录；路径控件接受可执行文件或目录的绝对路径。
 
-应用会运行本地工具的版本命令，并执行与受管 revision 相同的确定性媒体兼容性测试。应用不会固定本地文件哈希、安装更新或替换本地程序。本地程序以当前用户权限运行；所选 yt-dlp 会接收视频 URL 和 Cookie 文件，因此应只配置可信的可执行文件。
+在 macOS 上，相同的来源显示为 `Homebrew` 和 `Custom`。仅当 Homebrew 已经存在时，Homebrew 模式才能安装、更新或重新安装经过验证的 `yt-dlp`、`ffmpeg` 和 `deno` formula。如果缺少 Brew，请自行从 `https://brew.sh/` 安装；应用绝不会静默安装 Homebrew。
+
+Custom 模式接受无扩展名的 `yt-dlp` 和 `deno` 可执行文件绝对路径，以及包含无扩展名 `ffmpeg` 和 `ffprobe` 的绝对目录路径。自动检测会搜索继承的 `PATH`，以及对 Finder 启动安全的标准 Brew 前缀 `/opt/homebrew/bin` 和 `/usr/local/bin`。`使用 PATH` 会清除显式覆盖路径，并重新执行自动检测。
+
+应用会运行自定义/本地工具的版本命令，并执行与受管工具相同的确定性媒体兼容性测试。应用不会固定自定义/本地文件哈希、安装更新或替换这些可执行文件。它们以当前用户权限运行；所选 yt-dlp 会接收视频 URL 和 Cookie 文件，因此应只配置可信的可执行文件。
 
 ## 工具链维护
 
@@ -140,17 +180,19 @@ GITHUB_TOKEN="$(gh auth token)" node scripts/update-toolchain.mjs --dry-run
 
 ## 数据、存储和输出
 
-视频默认下载到：
+视频在 Windows 上默认下载到 `%USERPROFILE%\Downloads\yt-dlp-tauri\`，在 macOS 上默认下载到 `~/Downloads/yt-dlp-tauri/`。
 
-```text
-%USERPROFILE%\Downloads\yt-dlp-tauri\
-```
-
-应用状态和日志位于：
+Windows 应用状态和日志位于：
 
 ```text
 %LOCALAPPDATA%\yt-dlp-tauri\state\
 %LOCALAPPDATA%\yt-dlp-tauri\logs\app.log
+```
+
+macOS 状态和日志使用：
+
+```text
+~/Library/Application Support/yt-dlp-tauri/
 ```
 
 工具来源和可选绝对路径配置位于：

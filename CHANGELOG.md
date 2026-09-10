@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### 中文
+
+- macOS 新增 Homebrew 受管工具模式；仅在 Homebrew 已存在时安装、更新或重新安装经过验证的 `yt-dlp`、`ffmpeg` 和 `deno` formula，绝不静默安装 Homebrew。
+- macOS Custom 模式支持无扩展名的绝对可执行文件路径，并通过继承的 `PATH`、`/opt/homebrew/bin` 和 `/usr/local/bin` 提供对 Finder 启动安全的工具发现。
+- 下载目录、应用状态、日志和文件夹打开操作改用原生 macOS 路径，同时保留现有 Windows 路径行为。
+- 支持构建未签名且未经过 notarization 的本地 macOS `.app` 和 `.dmg` bundle，并新增 macOS CI 原生构建验证；公开发布的 release 仍仅支持 Windows。
+
+### English
+
+- Added Homebrew-managed tools on macOS, with install, update, and reinstall limited to validated `yt-dlp`, `ffmpeg`, and `deno` formulas when Homebrew already exists; the app never installs Homebrew silently.
+- Added extensionless absolute executable paths in macOS Custom mode and Finder-safe discovery through the inherited `PATH`, `/opt/homebrew/bin`, and `/usr/local/bin`.
+- Switched download, application state, log, and folder-opening behavior to native macOS paths while preserving existing Windows paths.
+- Added unsigned and unnotarized local macOS `.app` and `.dmg` bundles plus native macOS CI build verification; published releases remain Windows-only.
+
 ## 0.1.13 - 2026-07-14
 
 ### 中文

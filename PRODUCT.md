@@ -6,7 +6,7 @@ product
 
 ## Users
 
-Windows users who want the capabilities of yt-dlp without managing command-line arguments. They paste a video URL, inspect metadata, choose a format, and save a local file. Some users prefer the verified app-managed toolchain, while experienced users may already maintain compatible tools on their system.
+Windows and macOS users who want the capabilities of yt-dlp without managing command-line arguments. They paste a video URL, inspect metadata, choose a format, and save a local file. Some users prefer the platform-managed toolchain, while experienced users may already maintain compatible tools on their system.
 
 ## Product Purpose
 

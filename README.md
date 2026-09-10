@@ -1,7 +1,7 @@
 <h1 align="center">yt-dlp-tauri</h1>
 
 <p align="center">
-  <strong>A minimal Windows desktop downloader powered by yt-dlp and Tauri 2.</strong>
+  <strong>A minimal Windows and macOS desktop downloader powered by yt-dlp and Tauri 2.</strong>
 </p>
 
 <p align="center">
@@ -18,6 +18,7 @@
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-typed-3178C6?logo=typescript" />
   <img alt="Vite" src="https://img.shields.io/badge/Vite-build-646CFF?logo=vite" />
   <img alt="Windows" src="https://img.shields.io/badge/Windows-desktop-0078D4?logo=windows" />
+  <img alt="macOS" src="https://img.shields.io/badge/macOS-desktop-000000?logo=apple" />
 </p>
 
 <p align="center">
@@ -37,10 +38,10 @@ The project is desktop-first and local-first. It is not a hosted downloader serv
 - Parse video metadata through `yt-dlp` and preview title, thumbnail, duration, source URL, description, and quality options.
 - Download with live progress, speed, ETA, cancellation, and a saved output folder.
 - Use Cookie files for authenticated sites, including Netscape `cookies.txt` and one-line browser Cookie headers.
-- Install, update, reinstall, and verify complete app-managed toolchain revisions from Settings.
-- Switch between the app-managed toolchain and trusted local tools discovered from `PATH` or selected by absolute path.
-- Resolve the stable toolchain from project-controlled immutable GitHub Release assets.
-- Stage and verify every tool before atomic activation, preserving the active revision when an update fails.
+- Install, update, reinstall, and verify managed tools from Settings: project-hosted archives on Windows and existing Homebrew installations on macOS.
+- Switch between managed tools and trusted custom tools discovered from platform search paths or selected by absolute path.
+- Resolve the Windows stable toolchain from project-controlled immutable GitHub Release assets.
+- Stage and verify every Windows archive tool before atomic activation, preserving the active revision when an update fails.
 - Switch the UI between English and Chinese.
 - Check GitHub Releases for app updates, with optional `gh-proxy` routing for update and release access.
 - Keep local operational logs for recent app activity.
@@ -53,27 +54,61 @@ The project is desktop-first and local-first. It is not a hosted downloader serv
 | Backend | Rust |
 | Frontend | Vanilla TypeScript, Vite |
 | UI | Fixed-size product-style desktop interface |
-| Toolchain | App-managed or user-selected Windows x64 `yt-dlp`, `ffmpeg`, `ffprobe`, `deno` |
-| Installer | Windows x64 NSIS |
+| Toolchain | Project-managed Windows x64 archives, macOS Homebrew formulas, or trusted custom `yt-dlp`, `ffmpeg`, `ffprobe`, and `deno` executables |
+| Bundles | Windows x64 NSIS; local macOS `.app` and `.dmg` |
 
 ## Quick Start
 
-Use Windows for real app builds. WSL can run many checks, while release installers should be built on Windows or by the GitHub Actions release workflow.
+The app has runtime definitions for Windows x64, macOS Apple Silicon, and macOS Intel. Published releases and project-hosted archive tools remain Windows-only; macOS users build local development artifacts from source.
 
-### 1. Install prerequisites
+### macOS
+
+#### 1. Install prerequisites
+
+- macOS on Apple Silicon or Intel
+- Node.js 24+
+- Rust stable with the platform toolchain
+- [Homebrew](https://brew.sh/), installed under your control
+
+If Homebrew is absent, install it from `https://brew.sh/` under your own control. The app does not install Homebrew or run its remote bootstrap script. Then install the formulas:
+
+```bash
+brew install yt-dlp ffmpeg deno
+```
+
+#### 2. Install dependencies and run or build
+
+```bash
+npm ci
+npm run tauri dev
+npm run tauri build
+```
+
+Local macOS bundles are written to:
+
+```text
+src-tauri/target/release/bundle/macos/
+src-tauri/target/release/bundle/dmg/
+```
+
+These local `.app` and `.dmg` bundles are unsigned and unnotarized. macOS may block them until you explicitly allow them to open in system security settings. The project does not publish macOS release artifacts.
+
+### Windows
+
+#### 1. Install prerequisites
 
 - Windows 10/11 x64 with WebView2 Runtime
 - Node.js 24+
 - Rust stable with the platform toolchain
-- PowerShell 5+ or PowerShell 7+ on Windows
+- PowerShell 5+ or PowerShell 7+
 
-### 2. Install dependencies
+#### 2. Install dependencies
 
 ```powershell
 npm ci
 ```
 
-### 3. Optional: restore development tools
+#### 3. Optional: restore development tools
 
 ```powershell
 .\scripts\download-tools.ps1
@@ -81,19 +116,19 @@ npm ci
 
 This is optional for normal app use. If tools are missing, open the app, go to Settings, and click `Install tools`.
 
-### 4. Run the desktop app in development
+#### 4. Run the desktop app in development
 
 ```powershell
 npm run tauri dev
 ```
 
-### 5. Build the desktop installer
+#### 5. Build the desktop installer
 
 ```powershell
 npm run tauri build
 ```
 
-The configured bundle target is `nsis`. Build output is written under:
+The configured Windows bundle target is `nsis`. Build output is written under:
 
 ```text
 src-tauri\target\release\bundle\nsis\
@@ -113,16 +148,21 @@ src-tauri\target\release\bundle\nsis\
 | Settings: GitHub site | `Direct` or `gh-proxy` mode for update checks and release links. Project home always opens GitHub directly. |
 | Settings: tool source | Switch between the verified app-managed revision and trusted local executables. |
 
-Current release scope:
+Current platform scope:
 
-- Supported tool target: `win-x64`.
-- Tool binaries are not committed to the repository.
+- Runtime definitions support `win-x64`, `macos-arm64`, and `macos-x64`.
+- Project-hosted archive tools and published application releases remain Windows-only.
+- Tool binaries are not committed to the repository, and macOS Homebrew tools are never copied into the app bundle or checkout.
 
-## Local Tool Mode
+## Managed and Custom Tool Modes
 
-Settings can switch the complete toolchain between `Managed` and `Local`. Local mode searches the current process `PATH` for `yt-dlp.exe`, `deno.exe`, and one directory containing both `ffmpeg.exe` and `ffprobe.exe`. The path controls can select an absolute yt-dlp executable, FFmpeg directory, or Deno executable when a tool is outside `PATH`. `Use PATH` clears those overrides and resolves all tools from `PATH` again.
+On Windows, Settings labels the tool sources `Managed` and `Local`. Managed mode uses the verified project-hosted Windows archive revision. Local mode searches the inherited `PATH` for `yt-dlp.exe`, `deno.exe`, and one directory containing both `ffmpeg.exe` and `ffprobe.exe`; its path controls accept absolute executable or directory paths.
 
-Local tools are checked by running their version commands and the same deterministic media compatibility fixture used for managed revisions. The app does not pin hashes, install updates, or replace local executables. Local programs run with the user's permissions; the selected yt-dlp executable receives video URLs and the selected Cookie file, so only trusted binaries should be configured.
+On macOS, the same sources are labeled `Homebrew` and `Custom`. Homebrew mode can install, update, or reinstall the validated `yt-dlp`, `ffmpeg`, and `deno` formulas only when Homebrew already exists. If Brew is missing, install it yourself from `https://brew.sh/`; the app never installs Homebrew silently.
+
+Custom mode accepts absolute paths to extensionless `yt-dlp` and `deno` executables plus an absolute directory containing extensionless `ffmpeg` and `ffprobe`. Auto-detection searches the inherited `PATH` plus the Finder-safe standard Brew prefixes `/opt/homebrew/bin` and `/usr/local/bin`. `Use PATH` clears explicit overrides and repeats automatic discovery.
+
+Custom/local tools are checked by running their version commands and the same deterministic media compatibility fixture used for managed tools. The app does not pin hashes, install updates, or replace custom/local executables. These programs run with the user's permissions; the selected yt-dlp executable receives video URLs and the selected Cookie file, so configure only trusted binaries.
 
 ## Toolchain Maintenance
 
@@ -140,17 +180,19 @@ Source and selection changes belong in `toolchain-policy.json`. The resolver gen
 
 ## Data, Storage, and Output
 
-Downloaded videos default to:
+Downloaded videos default to `%USERPROFILE%\Downloads\yt-dlp-tauri\` on Windows and `~/Downloads/yt-dlp-tauri/` on macOS.
 
-```text
-%USERPROFILE%\Downloads\yt-dlp-tauri\
-```
-
-App state and logs are stored under:
+Windows app state and logs are stored under:
 
 ```text
 %LOCALAPPDATA%\yt-dlp-tauri\state\
 %LOCALAPPDATA%\yt-dlp-tauri\logs\app.log
+```
+
+macOS state and logs use:
+
+```text
+~/Library/Application Support/yt-dlp-tauri/
 ```
 
 The selected tool source and optional absolute-path overrides are stored in:
