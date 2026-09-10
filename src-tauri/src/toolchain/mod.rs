@@ -1,6 +1,7 @@
 mod activation;
 mod archive;
 mod channel;
+mod homebrew;
 mod install;
 mod local;
 mod platform;
@@ -20,6 +21,10 @@ pub use activation::{
 pub(crate) use channel::{
     parse_channel_record, select_revision_manifest_asset, sha256_bytes, verify_channel_manifest,
     GitHubRelease,
+};
+pub use homebrew::{
+    check_homebrew_updates, locate_homebrew, probe_homebrew_toolchain,
+    reconcile_homebrew_toolchain, reinstall_homebrew_toolchain, HomebrewInstallation,
 };
 pub(crate) use install::build_tool_download_client;
 pub use install::{
