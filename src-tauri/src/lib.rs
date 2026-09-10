@@ -1914,7 +1914,7 @@ fn append_log(phase: &str, message: &str) {
     else {
         return;
     };
-    let sanitized = message.replace('\r', " ").replace('\n', " ");
+    let sanitized = message.replace(['\r', '\n'], " ");
     let _ = writeln!(file, "{} [{phase}] {sanitized}", unix_timestamp());
 }
 
