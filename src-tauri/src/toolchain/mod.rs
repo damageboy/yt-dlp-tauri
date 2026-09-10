@@ -248,13 +248,6 @@ pub fn manifest_target(manifest: &ToolsManifest, target: &str) -> Result<Manifes
         .ok_or_else(|| format!("No tool manifest target found for {target}"))
 }
 
-pub fn tool_target_from(os: &str, arch: &str) -> Option<&'static str> {
-    match (os, arch) {
-        ("windows", "x86_64") => Some("win-x64"),
-        _ => None,
-    }
-}
-
 pub(crate) fn tool_names_for_target(target: &str) -> Option<ToolNames> {
     match target {
         "win-x64" => Some(ToolNames {
@@ -334,14 +327,6 @@ mod tests {
         assert!(ToolchainRevision::parse("20260229.1").is_err());
         assert!(ToolchainRevision::parse("20240229.1").is_ok());
         assert!(ToolchainRevision::parse("20260712.1.extra").is_err());
-    }
-
-    #[test]
-    fn maps_supported_platform_arch_pairs_to_tool_targets() {
-        assert_eq!(tool_target_from("windows", "x86_64"), Some("win-x64"));
-        assert_eq!(tool_target_from("windows", "aarch64"), None);
-        assert_eq!(tool_target_from("macos", "x86_64"), None);
-        assert_eq!(tool_target_from("linux", "x86_64"), None);
     }
 
     #[test]

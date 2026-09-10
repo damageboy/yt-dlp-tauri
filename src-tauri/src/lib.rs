@@ -17,12 +17,15 @@ use tauri::{AppHandle, Emitter, Manager};
 pub mod toolchain;
 
 use toolchain::{
-    activate_revision, active_tool_paths, build_tool_download_client, manifest_target,
-    parse_channel_record, parse_local_toolchain_config, parse_manifest, probe_local_toolchain,
-    probe_target, promote_staged_toolchain, read_active_state, require_tools,
+    activate_revision, active_tool_paths, build_tool_download_client, bundled_platform_catalog,
+    check_homebrew_updates, locate_homebrew, manifest_target, parse_channel_record,
+    parse_local_toolchain_config, parse_manifest, platform_definition_from,
+    probe_homebrew_toolchain, probe_local_toolchain, probe_target, promote_staged_toolchain,
+    read_active_state, reconcile_homebrew_toolchain, reinstall_homebrew_toolchain, require_tools,
     resolve_local_toolchain, revision_root, select_revision_manifest_asset, stage_target_revision,
-    tool_names_for_target, tool_paths_for_root, tool_target_from, verify_channel_manifest,
-    ActiveToolchainState, GitHubRelease, LocalToolchainConfig, ManifestTarget, ProgressReporter,
+    tool_names_for_target, tool_paths_for_root, verify_channel_manifest, ActiveToolchainState,
+    GitHubRelease, LocalToolchainConfig, ManagedProviderDefinition, ManifestTarget,
+    PlatformPresentation, PlatformToolchainDefinition, ProgressReporter,
     StageTargetRevisionRequest, ToolInstallProgress, ToolPaths, ToolStatus, ToolchainSource,
     ToolsManifest, REVISION_MANIFEST_FILE, TOOLS_DIRECTORY,
 };
@@ -50,6 +53,7 @@ struct AppState {
     tools_root: String,
     toolchain_revision: Option<String>,
     toolchain_source: ToolchainSource,
+    platform: PlatformPresentation,
     local_toolchain: LocalToolchainConfig,
     local_toolchain_paths: LocalToolchainPaths,
     cookies_file: Option<String>,
@@ -117,6 +121,14 @@ struct LatestToolManifestResult {
     source: Option<String>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ManagedToolUpdateResult {
+    tools: Vec<ToolStatus>,
+    manifest_json: Option<String>,
+    remote_revision: Option<String>,
+}
+
 #[derive(Clone, Default)]
 struct DownloadProcessState {
     active_pid: Arc<Mutex<Option<u32>>>,
@@ -145,17 +157,18 @@ impl Drop for PreparedCookiesFile {
 #[tauri::command]
 async fn get_app_state(app: AppHandle) -> Result<AppState, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let platform = current_platform_definition()?;
         ensure_writable_directories()?;
-        let source = read_toolchain_source()?;
-        build_app_state(tools_root_for_source(&app, source)?)
+        build_app_state(&app, &platform)
     })
     .await
     .map_err(join_error)?
 }
 
 #[tauri::command]
-async fn set_download_directory(directory: String) -> Result<AppState, String> {
+async fn set_download_directory(app: AppHandle, directory: String) -> Result<AppState, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let platform = current_platform_definition()?;
         let trimmed = directory.trim();
         if trimmed.is_empty() {
             return Err("Download directory cannot be empty.".to_string());
@@ -171,15 +184,16 @@ async fn set_download_directory(directory: String) -> Result<AppState, String> {
         )
         .map_err(to_string)?;
 
-        build_app_state(String::new())
+        build_app_state(&app, &platform)
     })
     .await
     .map_err(join_error)?
 }
 
 #[tauri::command]
-async fn reset_download_directory() -> Result<AppState, String> {
+async fn reset_download_directory(app: AppHandle) -> Result<AppState, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let platform = current_platform_definition()?;
         let state_file = state_directory()?.join("download-directory.txt");
         if state_file.exists() {
             fs::remove_file(state_file).map_err(to_string)?;
@@ -187,15 +201,16 @@ async fn reset_download_directory() -> Result<AppState, String> {
 
         let directory = download_directory()?;
         fs::create_dir_all(&directory).map_err(to_string)?;
-        build_app_state(String::new())
+        build_app_state(&app, &platform)
     })
     .await
     .map_err(join_error)?
 }
 
 #[tauri::command]
-async fn set_cookies_file(path: String) -> Result<AppState, String> {
+async fn set_cookies_file(app: AppHandle, path: String) -> Result<AppState, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let platform = current_platform_definition()?;
         let trimmed = path.trim();
         if trimmed.is_empty() {
             return Err("Cookie file cannot be empty.".to_string());
@@ -211,21 +226,22 @@ async fn set_cookies_file(path: String) -> Result<AppState, String> {
         )
         .map_err(to_string)?;
 
-        build_app_state(String::new())
+        build_app_state(&app, &platform)
     })
     .await
     .map_err(join_error)?
 }
 
 #[tauri::command]
-async fn clear_cookies_file() -> Result<AppState, String> {
+async fn clear_cookies_file(app: AppHandle) -> Result<AppState, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let platform = current_platform_definition()?;
         let state_file = cookies_file_state_path()?;
         if state_file.exists() {
             fs::remove_file(state_file).map_err(to_string)?;
         }
 
-        build_app_state(String::new())
+        build_app_state(&app, &platform)
     })
     .await
     .map_err(join_error)?
@@ -245,11 +261,11 @@ async fn open_download_directory() -> Result<(), String> {
 #[tauri::command]
 async fn set_toolchain_source(app: AppHandle, source: String) -> Result<AppState, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let platform = current_platform_definition()?;
         let source = ToolchainSource::parse(&source)?;
         ensure_writable_directories()?;
-        let tools_root = tools_root_for_source(&app, source)?;
         write_toolchain_source(source)?;
-        build_app_state(tools_root)
+        build_app_state(&app, &platform)
     })
     .await
     .map_err(join_error)?
@@ -261,6 +277,7 @@ async fn set_local_toolchain(
     config: LocalToolchainInput,
 ) -> Result<AppState, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let platform = current_platform_definition()?;
         let config = LocalToolchainConfig::from_paths(
             optional_input_path(config.yt_dlp_path),
             optional_input_path(config.ffmpeg_directory),
@@ -268,8 +285,7 @@ async fn set_local_toolchain(
         )?;
         ensure_writable_directories()?;
         write_local_toolchain_config(&config)?;
-        let source = read_toolchain_source()?;
-        build_app_state(tools_root_for_source(&app, source)?)
+        build_app_state(&app, &platform)
     })
     .await
     .map_err(join_error)?
@@ -278,10 +294,10 @@ async fn set_local_toolchain(
 #[tauri::command]
 async fn auto_detect_local_toolchain(app: AppHandle) -> Result<AppState, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let platform = current_platform_definition()?;
         ensure_writable_directories()?;
         write_local_toolchain_config(&LocalToolchainConfig::default())?;
-        let source = read_toolchain_source()?;
-        build_app_state(tools_root_for_source(&app, source)?)
+        build_app_state(&app, &platform)
     })
     .await
     .map_err(join_error)?
@@ -290,15 +306,19 @@ async fn auto_detect_local_toolchain(app: AppHandle) -> Result<AppState, String>
 #[tauri::command]
 async fn check_tools(app: AppHandle) -> Result<Vec<ToolStatus>, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let target_name = current_tool_target()?;
-        match read_toolchain_source()? {
-            ToolchainSource::Managed => {
-                let target = read_manifest_target(&app, &target_name)?;
-                probe_manifest_tools(&app, &target)
-            }
+        let platform = current_platform_definition()?;
+        match read_toolchain_source(platform.default_source)? {
+            ToolchainSource::Managed => match &platform.provider {
+                ManagedProviderDefinition::ArchiveManifest { manifest_target } => {
+                    let target = read_manifest_target(&app, manifest_target)?;
+                    probe_manifest_tools(&app, &platform, &target)
+                }
+                ManagedProviderDefinition::Homebrew { .. } => probe_homebrew_toolchain(&platform),
+            },
             ToolchainSource::Local => {
                 let config = read_local_toolchain_config()?;
-                let resolution = resolve_local_toolchain(&config, &target_name)?;
+                let resolution =
+                    resolve_local_toolchain(&config, &platform.executable_names, &platform.os)?;
                 Ok(probe_local_toolchain(&resolution))
             }
         }
@@ -313,10 +333,11 @@ async fn check_tools_with_manifest(
     manifest_json: String,
 ) -> Result<Vec<ToolStatus>, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        require_managed_toolchain_source()?;
-        let target_name = current_tool_target()?;
-        let target = manifest_target_from_json(&manifest_json, &target_name)?;
-        probe_manifest_tools(&app, &target)
+        let platform = current_platform_definition()?;
+        require_managed_toolchain_source(&platform)?;
+        let target_name = archive_manifest_target(&platform)?;
+        let target = manifest_target_from_json(&manifest_json, target_name)?;
+        probe_manifest_tools(&app, &platform, &target)
     })
     .await
     .map_err(join_error)?
@@ -327,7 +348,47 @@ async fn fetch_latest_tool_manifest(
     github_access_mode: String,
 ) -> Result<LatestToolManifestResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let platform = current_platform_definition()?;
+        archive_manifest_target(&platform)?;
         fetch_latest_tool_manifest_blocking(&github_access_mode)
+    })
+    .await
+    .map_err(join_error)?
+}
+
+#[tauri::command]
+async fn check_managed_tool_updates(
+    app: AppHandle,
+    github_access_mode: String,
+) -> Result<ManagedToolUpdateResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let platform = current_platform_definition()?;
+        require_managed_toolchain_source(&platform)?;
+        match &platform.provider {
+            ManagedProviderDefinition::ArchiveManifest { manifest_target } => {
+                let result = fetch_latest_tool_manifest_blocking(&github_access_mode)?;
+                let tools = match result.manifest_json.as_deref() {
+                    Some(json) => {
+                        let target = manifest_target_from_json(json, manifest_target.as_str())?;
+                        probe_manifest_tools(&app, &platform, &target)?
+                    }
+                    None => {
+                        let target = read_manifest_target(&app, manifest_target)?;
+                        probe_manifest_tools(&app, &platform, &target)?
+                    }
+                };
+                Ok(ManagedToolUpdateResult {
+                    tools,
+                    manifest_json: result.manifest_json,
+                    remote_revision: result.revision,
+                })
+            }
+            ManagedProviderDefinition::Homebrew { .. } => Ok(ManagedToolUpdateResult {
+                tools: check_homebrew_updates(&platform)?,
+                manifest_json: None,
+                remote_revision: None,
+            }),
+        }
     })
     .await
     .map_err(join_error)?
@@ -339,16 +400,24 @@ async fn install_tools(
     github_access_mode: String,
 ) -> Result<Vec<ToolStatus>, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        require_managed_toolchain_source()?;
-        let target_name = current_tool_target()?;
-        let manifest_json = read_current_manifest_json(&app)?;
-        install_and_activate_manifest(
-            &app,
-            &manifest_json,
-            &target_name,
-            &github_access_mode,
-            false,
-        )
+        let platform = current_platform_definition()?;
+        require_managed_toolchain_source(&platform)?;
+        match &platform.provider {
+            ManagedProviderDefinition::ArchiveManifest { manifest_target } => {
+                let manifest_json = read_current_manifest_json(&app, manifest_target)?;
+                install_and_activate_manifest(
+                    &app,
+                    &manifest_json,
+                    manifest_target,
+                    &github_access_mode,
+                    false,
+                )
+            }
+            ManagedProviderDefinition::Homebrew { .. } => {
+                let reporter = TauriProgressReporter { app: &app };
+                reconcile_homebrew_toolchain(&platform, &reporter)
+            }
+        }
     })
     .await
     .map_err(join_error)?
@@ -361,12 +430,13 @@ async fn install_tools_from_manifest(
     github_access_mode: String,
 ) -> Result<Vec<ToolStatus>, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        require_managed_toolchain_source()?;
-        let target_name = current_tool_target()?;
+        let platform = current_platform_definition()?;
+        require_managed_toolchain_source(&platform)?;
+        let target_name = archive_manifest_target(&platform)?;
         install_and_activate_manifest(
             &app,
             &manifest_json,
-            &target_name,
+            target_name,
             &github_access_mode,
             false,
         )
@@ -382,19 +452,27 @@ async fn reinstall_tools(
     github_access_mode: String,
 ) -> Result<Vec<ToolStatus>, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        require_managed_toolchain_source()?;
-        let target_name = current_tool_target()?;
-        let manifest_json = match manifest_json {
-            Some(json) => json,
-            None => read_current_manifest_json(&app)?,
-        };
-        install_and_activate_manifest(
-            &app,
-            &manifest_json,
-            &target_name,
-            &github_access_mode,
-            true,
-        )
+        let platform = current_platform_definition()?;
+        require_managed_toolchain_source(&platform)?;
+        match &platform.provider {
+            ManagedProviderDefinition::ArchiveManifest { manifest_target } => {
+                let manifest_json = match manifest_json {
+                    Some(json) => json,
+                    None => read_current_manifest_json(&app, manifest_target)?,
+                };
+                install_and_activate_manifest(
+                    &app,
+                    &manifest_json,
+                    manifest_target,
+                    &github_access_mode,
+                    true,
+                )
+            }
+            ManagedProviderDefinition::Homebrew { .. } => {
+                let reporter = TauriProgressReporter { app: &app };
+                reinstall_homebrew_toolchain(&platform, &reporter)
+            }
+        }
     })
     .await
     .map_err(join_error)?
@@ -403,8 +481,9 @@ async fn reinstall_tools(
 #[tauri::command]
 async fn parse_metadata(app: AppHandle, url: String) -> Result<VideoMetadata, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let platform = current_platform_definition()?;
         validate_http_url(&url)?;
-        let tools = locate_tools(&app)?;
+        let tools = locate_tools(&app, &platform)?;
         require_tools(&tools)?;
         let cookies_file = prepared_cookies_file_for_url(&url)?;
         append_log("metadata", &format!("Parsing {url}"));
@@ -457,8 +536,9 @@ async fn download_video(
     let process_state = process_state.inner().clone();
 
     tauri::async_runtime::spawn_blocking(move || {
+        let platform = current_platform_definition()?;
         validate_http_url(&request.url)?;
-        let tools = locate_tools(&app)?;
+        let tools = locate_tools(&app, &platform)?;
         require_tools(&tools)?;
         ensure_writable_directories()?;
         let output_dir = download_directory()?;
@@ -617,28 +697,22 @@ async fn cancel_download(
         .map_err(join_error)?
 }
 
-fn locate_tools(app: &AppHandle) -> Result<ToolPaths, String> {
-    match read_toolchain_source()? {
-        ToolchainSource::Managed => locate_managed_tools(app),
+fn locate_tools(
+    app: &AppHandle,
+    platform: &PlatformToolchainDefinition,
+) -> Result<ToolPaths, String> {
+    match read_toolchain_source(platform.default_source)? {
+        ToolchainSource::Managed => locate_managed_tools(app, platform),
         ToolchainSource::Local => {
-            let target = current_tool_target()?;
             let config = read_local_toolchain_config()?;
-            resolve_local_toolchain(&config, &target)?.complete_paths()
+            resolve_local_toolchain(&config, &platform.executable_names, &platform.os)?
+                .complete_paths()
         }
     }
 }
 
-fn tools_root_for_source(app: &AppHandle, source: ToolchainSource) -> Result<String, String> {
-    match source {
-        ToolchainSource::Managed => {
-            locate_managed_tools(app).map(|tools| tools.root.display().to_string())
-        }
-        ToolchainSource::Local => Ok(String::new()),
-    }
-}
-
-fn require_managed_toolchain_source() -> Result<(), String> {
-    match read_toolchain_source()? {
+fn require_managed_toolchain_source(platform: &PlatformToolchainDefinition) -> Result<(), String> {
+    match read_toolchain_source(platform.default_source)? {
         ToolchainSource::Managed => Ok(()),
         ToolchainSource::Local => Err(
             "Managed toolchain commands are unavailable while local tools are active".to_string(),
@@ -646,32 +720,45 @@ fn require_managed_toolchain_source() -> Result<(), String> {
     }
 }
 
-fn locate_managed_tools(app: &AppHandle) -> Result<ToolPaths, String> {
-    let target = current_tool_target()?;
-    if let Some(paths) = active_tool_paths(&app_data_root()?, &target)? {
+fn locate_managed_tools(
+    app: &AppHandle,
+    platform: &PlatformToolchainDefinition,
+) -> Result<ToolPaths, String> {
+    match &platform.provider {
+        ManagedProviderDefinition::ArchiveManifest { manifest_target } => {
+            locate_archive_tools(app, manifest_target)
+        }
+        ManagedProviderDefinition::Homebrew { .. } => {
+            locate_homebrew(platform).map(|installation| installation.paths)
+        }
+    }
+}
+
+fn locate_archive_tools(app: &AppHandle, target: &str) -> Result<ToolPaths, String> {
+    if let Some(paths) = active_tool_paths(&app_data_root()?, target)? {
         return Ok(paths);
     }
-    let names = tool_names_for_target(&target)
-        .ok_or_else(|| format!("Unsupported tool target: {target}."))?;
+    let names = tool_names_for_target(target)
+        .ok_or_else(|| format!("Unsupported archive tool target: {target}."))?;
     let mut roots = Vec::new();
-    if let Ok(root) = writable_tools_root(&target) {
+    if let Ok(root) = writable_tools_root(target) {
         roots.push(root);
     }
 
     if let Ok(resource_dir) = app.path().resource_dir() {
-        roots.push(resource_dir.join(TOOLS_DIRECTORY).join(&target));
+        roots.push(resource_dir.join(TOOLS_DIRECTORY).join(target));
     }
 
     if let Ok(exe) = env::current_exe() {
         if let Some(parent) = exe.parent() {
-            roots.push(parent.join(TOOLS_DIRECTORY).join(&target));
+            roots.push(parent.join(TOOLS_DIRECTORY).join(target));
         }
     }
 
     roots.push(
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join(TOOLS_DIRECTORY)
-            .join(&target),
+            .join(target),
     );
 
     if let Ok(current_dir) = env::current_dir() {
@@ -679,42 +766,70 @@ fn locate_managed_tools(app: &AppHandle) -> Result<ToolPaths, String> {
             current_dir
                 .join("src-tauri")
                 .join(TOOLS_DIRECTORY)
-                .join(&target),
+                .join(target),
         );
-        roots.push(current_dir.join(TOOLS_DIRECTORY).join(&target));
+        roots.push(current_dir.join(TOOLS_DIRECTORY).join(target));
     }
 
     let root = roots
         .into_iter()
         .find(|root| root.join("yt-dlp").join(names.yt_dlp).exists())
         .unwrap_or_else(|| {
-            writable_tools_root(&target).unwrap_or_else(|_| {
+            writable_tools_root(target).unwrap_or_else(|_| {
                 PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                     .join(TOOLS_DIRECTORY)
-                    .join(&target)
+                    .join(target)
             })
         });
 
-    tool_paths_for_root(&root, &target)
+    tool_paths_for_root(&root, target)
 }
 
-fn current_tool_target() -> Result<String, String> {
-    env::var("YT_DLP_TOOL_TARGET")
-        .or_else(|_| env::var("YT_DLP_WINDOWS_TOOL_TARGET"))
+fn current_platform_definition() -> Result<PlatformToolchainDefinition, String> {
+    let catalog = bundled_platform_catalog()?;
+    let os = env::var("YT_DLP_TOOL_OS").unwrap_or_else(|_| env::consts::OS.to_string());
+    let arch = env::var("YT_DLP_TOOL_ARCH").unwrap_or_else(|_| env::consts::ARCH.to_string());
+    let selected = platform_definition_from(&catalog, &os, &arch)?;
+
+    let Some(target_override) = env::var("YT_DLP_TOOL_TARGET")
         .ok()
         .filter(|value| !value.trim().is_empty())
-        .map(Ok)
-        .unwrap_or_else(|| {
-            tool_target_from(env::consts::OS, env::consts::ARCH)
-                .map(|target| target.to_string())
-                .ok_or_else(|| {
-                    format!(
-                        "Unsupported tool target for {}-{}. Supported target: win-x64.",
-                        env::consts::OS,
-                        env::consts::ARCH
-                    )
-                })
-        })
+    else {
+        return Ok(selected);
+    };
+    let overridden = catalog
+        .targets
+        .iter()
+        .find(|definition| definition.target == target_override)
+        .cloned()
+        .ok_or_else(|| format!("Unknown platform toolchain target override: {target_override}"))?;
+    if !matches!(
+        overridden.provider,
+        ManagedProviderDefinition::ArchiveManifest { .. }
+    ) || overridden.os != "windows"
+    {
+        return Err(format!(
+            "YT_DLP_TOOL_TARGET may only select a Windows archive target, not {}",
+            overridden.target
+        ));
+    }
+    if overridden.os != os || overridden.arch != arch {
+        return Err(format!(
+            "Tool target override {} does not match selected platform {os}-{arch}; set YT_DLP_TOOL_OS and YT_DLP_TOOL_ARCH explicitly for tests",
+            overridden.target
+        ));
+    }
+    Ok(overridden)
+}
+
+fn archive_manifest_target(definition: &PlatformToolchainDefinition) -> Result<&str, String> {
+    match &definition.provider {
+        ManagedProviderDefinition::ArchiveManifest { manifest_target } => Ok(manifest_target),
+        ManagedProviderDefinition::Homebrew { .. } => Err(format!(
+            "Platform {} uses Homebrew and does not support archive manifest commands",
+            definition.target
+        )),
+    }
 }
 
 fn writable_tools_root(target: &str) -> Result<PathBuf, String> {
@@ -722,7 +837,7 @@ fn writable_tools_root(target: &str) -> Result<PathBuf, String> {
 }
 
 fn read_manifest_target(app: &AppHandle, target: &str) -> Result<ManifestTarget, String> {
-    let manifest = read_current_manifest(app)?;
+    let manifest = read_current_manifest(app, target)?;
     manifest_target_from_manifest(manifest, target)
 }
 
@@ -948,16 +1063,15 @@ fn manifest_target_from_manifest(
     manifest_target(&manifest, target)
 }
 
-fn read_current_manifest(app: &AppHandle) -> Result<ToolsManifest, String> {
-    manifest_from_json(&read_current_manifest_json(app)?)
+fn read_current_manifest(app: &AppHandle, target: &str) -> Result<ToolsManifest, String> {
+    manifest_from_json(&read_current_manifest_json(app, target)?)
 }
 
-fn read_current_manifest_json(app: &AppHandle) -> Result<String, String> {
-    let target = current_tool_target()?;
+fn read_current_manifest_json(app: &AppHandle, target: &str) -> Result<String, String> {
     let base = app_data_root()?;
-    if let Some(state) = read_active_state(&base, &target)? {
-        let _ = active_tool_paths(&base, &target)?;
-        let path = revision_root(&base, &target, &state.revision)?.join(REVISION_MANIFEST_FILE);
+    if let Some(state) = read_active_state(&base, target)? {
+        let _ = active_tool_paths(&base, target)?;
+        let path = revision_root(&base, target, &state.revision)?.join(REVISION_MANIFEST_FILE);
         return fs::read_to_string(&path).map_err(|error| {
             format!(
                 "Failed to read active toolchain manifest at {}: {error}",
@@ -1090,9 +1204,10 @@ impl ProgressReporter for TauriProgressReporter<'_> {
 
 fn probe_manifest_tools(
     app: &AppHandle,
+    platform: &PlatformToolchainDefinition,
     target: &ManifestTarget,
 ) -> Result<Vec<ToolStatus>, String> {
-    let tools = locate_managed_tools(app)?;
+    let tools = locate_managed_tools(app, platform)?;
     probe_target(&tools, target)
 }
 
@@ -1304,23 +1419,46 @@ fn was_cancel_requested(state: &DownloadProcessState) -> bool {
         .unwrap_or(false)
 }
 
-fn build_app_state(tools_root: String) -> Result<AppState, String> {
-    let target = current_tool_target()?;
-    let toolchain_source = read_toolchain_source()?;
+fn build_app_state(
+    app: &AppHandle,
+    platform: &PlatformToolchainDefinition,
+) -> Result<AppState, String> {
+    let toolchain_source = read_toolchain_source(platform.default_source)?;
     let local_toolchain = read_local_toolchain_config()?;
-    let local_resolution = resolve_local_toolchain(&local_toolchain, &target)?;
+    let local_resolution =
+        resolve_local_toolchain(&local_toolchain, &platform.executable_names, &platform.os)?;
     let ffmpeg_directory = local_resolution.ffmpeg_directory().map(Path::to_path_buf);
     let local_toolchain_paths = LocalToolchainPaths {
         yt_dlp_path: local_resolution.yt_dlp,
         ffmpeg_directory,
         deno_path: local_resolution.deno,
     };
+    let tools_root = match toolchain_source {
+        ToolchainSource::Local => String::new(),
+        ToolchainSource::Managed => match &platform.provider {
+            ManagedProviderDefinition::ArchiveManifest { manifest_target } => {
+                locate_archive_tools(app, manifest_target)?
+                    .root
+                    .display()
+                    .to_string()
+            }
+            ManagedProviderDefinition::Homebrew { .. } => locate_homebrew(platform)
+                .map(|installation| installation.prefix.display().to_string())
+                .unwrap_or_default(),
+        },
+    };
+    let toolchain_revision = match &platform.provider {
+        ManagedProviderDefinition::ArchiveManifest { manifest_target } => {
+            read_active_state(&app_data_root()?, manifest_target)?.map(|state| state.revision)
+        }
+        ManagedProviderDefinition::Homebrew { .. } => None,
+    };
     Ok(AppState {
         download_directory: download_directory()?.display().to_string(),
         tools_root,
-        toolchain_revision: read_active_state(&app_data_root()?, &target)?
-            .map(|state| state.revision),
+        toolchain_revision,
         toolchain_source,
+        platform: platform.presentation(),
         local_toolchain,
         local_toolchain_paths,
         cookies_file: cookies_file()?.map(|path| path.display().to_string()),
@@ -1648,10 +1786,10 @@ fn state_directory() -> Result<PathBuf, String> {
     Ok(app_data_root()?.join("state"))
 }
 
-fn read_toolchain_source() -> Result<ToolchainSource, String> {
+fn read_toolchain_source(default_source: ToolchainSource) -> Result<ToolchainSource, String> {
     let path = state_directory()?.join(TOOLCHAIN_SOURCE_FILE);
     if !path.exists() {
-        return parse_toolchain_source_state(None);
+        return parse_toolchain_source_state(None, default_source);
     }
     let value = fs::read_to_string(&path).map_err(|error| {
         format!(
@@ -1659,12 +1797,15 @@ fn read_toolchain_source() -> Result<ToolchainSource, String> {
             path.display()
         )
     })?;
-    parse_toolchain_source_state(Some(&value))
+    parse_toolchain_source_state(Some(&value), default_source)
 }
 
-fn parse_toolchain_source_state(value: Option<&str>) -> Result<ToolchainSource, String> {
+fn parse_toolchain_source_state(
+    value: Option<&str>,
+    default_source: ToolchainSource,
+) -> Result<ToolchainSource, String> {
     match value {
-        None => Ok(ToolchainSource::Managed),
+        None => Ok(default_source),
         Some(value) => ToolchainSource::parse(value),
     }
 }
@@ -2141,13 +2282,54 @@ mod tests {
     }
 
     #[test]
-    fn toolchain_source_state_defaults_to_managed() {
+    fn absent_source_uses_platform_default() {
         assert_eq!(
-            parse_toolchain_source_state(None).expect("missing state should use the default"),
-            ToolchainSource::Managed
+            parse_toolchain_source_state(None, ToolchainSource::Managed).unwrap(),
+            ToolchainSource::Managed,
         );
         assert_eq!(
-            parse_toolchain_source_state(Some("local\n"))
+            parse_toolchain_source_state(None, ToolchainSource::Local).unwrap(),
+            ToolchainSource::Local,
+        );
+    }
+
+    #[test]
+    fn provider_kind_controls_archive_manifest_access() {
+        let catalog = bundled_platform_catalog().unwrap();
+        let windows = platform_definition_from(&catalog, "windows", "x86_64").unwrap();
+        let macos = platform_definition_from(&catalog, "macos", "aarch64").unwrap();
+
+        assert!(archive_manifest_target(&windows).is_ok());
+        assert!(archive_manifest_target(&macos)
+            .unwrap_err()
+            .contains("Homebrew"));
+    }
+
+    #[test]
+    fn platform_presentation_serializes_provider_fields_and_extensions() {
+        let catalog = bundled_platform_catalog().unwrap();
+        let windows = platform_definition_from(&catalog, "windows", "x86_64").unwrap();
+        let macos = platform_definition_from(&catalog, "macos", "aarch64").unwrap();
+
+        let windows = serde_json::to_value(windows.presentation()).unwrap();
+        assert_eq!(windows["target"], "win-x64");
+        assert_eq!(windows["managedProvider"], "archive-manifest");
+        assert!(windows.get("sourceLabels").is_some());
+        assert!(windows.get("capabilities").is_some());
+        assert_eq!(windows["executableExtension"], "exe");
+
+        let macos = serde_json::to_value(macos.presentation()).unwrap();
+        assert_eq!(macos["target"], "macos-arm64");
+        assert_eq!(macos["managedProvider"], "homebrew");
+        assert!(macos.get("sourceLabels").is_some());
+        assert!(macos.get("capabilities").is_some());
+        assert!(macos["executableExtension"].is_null());
+    }
+
+    #[test]
+    fn toolchain_source_state_parses_stored_values() {
+        assert_eq!(
+            parse_toolchain_source_state(Some("local\n"), ToolchainSource::Managed)
                 .expect("stored local source should parse"),
             ToolchainSource::Local
         );
@@ -2155,7 +2337,7 @@ mod tests {
 
     #[test]
     fn toolchain_source_state_rejects_unknown_values() {
-        assert!(parse_toolchain_source_state(Some("automatic")).is_err());
+        assert!(parse_toolchain_source_state(Some("automatic"), ToolchainSource::Managed).is_err());
     }
 
     #[test]
@@ -2206,6 +2388,7 @@ pub fn run() {
             check_tools,
             check_tools_with_manifest,
             fetch_latest_tool_manifest,
+            check_managed_tool_updates,
             install_tools,
             install_tools_from_manifest,
             reinstall_tools,

@@ -1,6 +1,5 @@
 use super::{
-    probe::probe_executable, tool_names_for_target, verify_toolchain_combination, ToolPaths,
-    ToolStatus,
+    probe::probe_executable, verify_toolchain_combination, ExecutableNames, ToolPaths, ToolStatus,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -127,12 +126,13 @@ impl LocalToolchainResolution {
 
 pub fn resolve_local_toolchain(
     config: &LocalToolchainConfig,
-    target: &str,
+    names: &ExecutableNames,
+    _os: &str,
 ) -> Result<LocalToolchainResolution, String> {
     let path_directories = env::var_os("PATH")
         .map(|value| env::split_paths(&value).collect::<Vec<_>>())
         .unwrap_or_default();
-    resolve_local_toolchain_with(config, target, &path_directories, Path::is_file)
+    resolve_local_toolchain_with(config, names, &path_directories, Path::is_file)
 }
 
 pub fn probe_local_toolchain(resolution: &LocalToolchainResolution) -> Vec<ToolStatus> {
@@ -183,7 +183,7 @@ fn validate_local_toolchain_config(config: &LocalToolchainConfig) -> Result<(), 
 
 fn resolve_local_toolchain_with<F>(
     config: &LocalToolchainConfig,
-    target: &str,
+    names: &ExecutableNames,
     path_directories: &[PathBuf],
     is_file: F,
 ) -> Result<LocalToolchainResolution, String>
@@ -191,32 +191,30 @@ where
     F: Fn(&Path) -> bool,
 {
     validate_local_toolchain_config(config)?;
-    let names = tool_names_for_target(target)
-        .ok_or_else(|| format!("Unsupported tool target: {target}"))?;
     let yt_dlp = config
         .yt_dlp_path
         .clone()
-        .or_else(|| find_executable(path_directories, names.yt_dlp, &is_file));
+        .or_else(|| find_executable(path_directories, &names.yt_dlp, &is_file));
     let deno = config
         .deno_path
         .clone()
-        .or_else(|| find_executable(path_directories, names.deno, &is_file));
+        .or_else(|| find_executable(path_directories, &names.deno, &is_file));
 
     let ffmpeg_directory = config.ffmpeg_directory.clone().or_else(|| {
         path_directories.iter().find_map(|directory| {
             if !directory.is_absolute() {
                 return None;
             }
-            let ffmpeg = directory.join(names.ffmpeg);
-            let ffprobe = directory.join(names.ffprobe);
+            let ffmpeg = directory.join(&names.ffmpeg);
+            let ffprobe = directory.join(&names.ffprobe);
             (is_file(&ffmpeg) && is_file(&ffprobe)).then(|| directory.clone())
         })
     });
     let (ffmpeg, ffprobe) = ffmpeg_directory
         .map(|directory| {
             (
-                Some(directory.join(names.ffmpeg)),
-                Some(directory.join(names.ffprobe)),
+                Some(directory.join(&names.ffmpeg)),
+                Some(directory.join(&names.ffprobe)),
             )
         })
         .unwrap_or((None, None));
@@ -273,6 +271,15 @@ mod tests {
             .fold(root, |path, component| path.join(component))
     }
 
+    fn windows_executable_names() -> ExecutableNames {
+        ExecutableNames {
+            yt_dlp: "yt-dlp.exe".to_string(),
+            ffmpeg: "ffmpeg.exe".to_string(),
+            ffprobe: "ffprobe.exe".to_string(),
+            deno: "deno.exe".to_string(),
+        }
+    }
+
     #[test]
     fn toolchain_source_accepts_only_managed_and_local() {
         assert_eq!(
@@ -307,8 +314,10 @@ mod tests {
         .expect("absolute paths should be accepted");
 
         let resolution =
-            resolve_local_toolchain_with(&config, "win-x64", &[], |path| path.is_absolute())
-                .expect("configured paths should resolve");
+            resolve_local_toolchain_with(&config, &windows_executable_names(), &[], |path| {
+                path.is_absolute()
+            })
+            .expect("configured paths should resolve");
 
         assert_eq!(resolution.yt_dlp, Some(yt_dlp));
         assert_eq!(resolution.ffmpeg, Some(ffmpeg_directory.join("ffmpeg.exe")));
@@ -332,7 +341,7 @@ mod tests {
         let path_directories = vec![media_directory.clone(), runtime_directory];
         let resolution = resolve_local_toolchain_with(
             &LocalToolchainConfig::default(),
-            "win-x64",
+            &windows_executable_names(),
             &path_directories,
             |path| available.iter().any(|candidate| candidate == path),
         )
@@ -355,7 +364,7 @@ mod tests {
         ];
         let resolution = resolve_local_toolchain_with(
             &LocalToolchainConfig::default(),
-            "win-x64",
+            &windows_executable_names(),
             &[ffmpeg_directory, ffprobe_directory],
             |path| available.iter().any(|candidate| candidate == path),
         )
@@ -372,11 +381,13 @@ mod tests {
         let path_yt_dlp = path_directory.join("yt-dlp.exe");
         let config = LocalToolchainConfig::from_paths(Some(configured_yt_dlp.clone()), None, None)
             .expect("configured path should be valid");
-        let resolution =
-            resolve_local_toolchain_with(&config, "win-x64", &[path_directory], |path| {
-                path == path_yt_dlp
-            })
-            .expect("configured path should resolve");
+        let resolution = resolve_local_toolchain_with(
+            &config,
+            &windows_executable_names(),
+            &[path_directory],
+            |path| path == path_yt_dlp,
+        )
+        .expect("configured path should resolve");
 
         assert_eq!(resolution.yt_dlp, Some(configured_yt_dlp));
     }
@@ -407,11 +418,13 @@ mod tests {
 
     #[test]
     fn incomplete_path_detection_reports_every_missing_tool() {
-        let resolution =
-            resolve_local_toolchain_with(&LocalToolchainConfig::default(), "win-x64", &[], |_| {
-                false
-            })
-            .expect("empty PATH should still produce a resolution");
+        let resolution = resolve_local_toolchain_with(
+            &LocalToolchainConfig::default(),
+            &windows_executable_names(),
+            &[],
+            |_| false,
+        )
+        .expect("empty PATH should still produce a resolution");
 
         assert_eq!(
             resolution
