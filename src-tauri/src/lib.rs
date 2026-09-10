@@ -334,8 +334,8 @@ async fn check_tools_with_manifest(
 ) -> Result<Vec<ToolStatus>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let platform = current_platform_definition()?;
-        require_managed_toolchain_source(&platform)?;
         let target_name = archive_manifest_target(&platform)?;
+        require_managed_toolchain_source(&platform)?;
         let target = manifest_target_from_json(&manifest_json, target_name)?;
         probe_manifest_tools(&app, &platform, &target)
     })
@@ -431,8 +431,8 @@ async fn install_tools_from_manifest(
 ) -> Result<Vec<ToolStatus>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let platform = current_platform_definition()?;
-        require_managed_toolchain_source(&platform)?;
         let target_name = archive_manifest_target(&platform)?;
+        require_managed_toolchain_source(&platform)?;
         install_and_activate_manifest(
             &app,
             &manifest_json,
@@ -2303,6 +2303,42 @@ mod tests {
         assert!(archive_manifest_target(&macos)
             .unwrap_err()
             .contains("Homebrew"));
+    }
+
+    #[test]
+    fn homebrew_archive_commands_prioritize_provider_error_with_local_selected() {
+        let catalog = bundled_platform_catalog().unwrap();
+        let macos = platform_definition_from(&catalog, "macos", "aarch64").unwrap();
+        let selected_source = ToolchainSource::Local;
+        let result = (|| {
+            let target = archive_manifest_target(&macos)?;
+            match selected_source {
+                ToolchainSource::Managed => Ok(target),
+                ToolchainSource::Local => Err(
+                    "Managed toolchain commands are unavailable while local tools are active"
+                        .to_string(),
+                ),
+            }
+        })();
+        assert!(result.unwrap_err().contains("Homebrew"));
+
+        let source = include_str!("lib.rs");
+        for command in ["check_tools_with_manifest", "install_tools_from_manifest"] {
+            let body = source
+                .split_once(&format!("async fn {command}"))
+                .unwrap()
+                .1
+                .split("#[tauri::command]")
+                .next()
+                .unwrap();
+            assert!(
+                body.find("archive_manifest_target(&platform)?").unwrap()
+                    < body
+                        .find("require_managed_toolchain_source(&platform)?")
+                        .unwrap(),
+                "{command} must reject Homebrew before checking local source state"
+            );
+        }
     }
 
     #[test]
