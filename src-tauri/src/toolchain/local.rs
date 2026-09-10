@@ -4,6 +4,7 @@ use super::{
 use serde::{Deserialize, Serialize};
 use std::{
     env,
+    ffi::OsStr,
     path::{Path, PathBuf},
 };
 
@@ -127,12 +128,41 @@ impl LocalToolchainResolution {
 pub fn resolve_local_toolchain(
     config: &LocalToolchainConfig,
     names: &ExecutableNames,
-    _os: &str,
+    os: &str,
 ) -> Result<LocalToolchainResolution, String> {
-    let path_directories = env::var_os("PATH")
-        .map(|value| env::split_paths(&value).collect::<Vec<_>>())
-        .unwrap_or_default();
+    let inherited_path = env::var_os("PATH");
+    let homebrew_prefix = env::var_os("HOMEBREW_PREFIX").map(PathBuf::from);
+    let path_directories =
+        tool_search_directories(inherited_path.as_deref(), homebrew_prefix.as_deref(), os);
     resolve_local_toolchain_with(config, names, &path_directories, Path::is_file)
+}
+
+fn tool_search_directories(
+    inherited_path: Option<&OsStr>,
+    homebrew_prefix: Option<&Path>,
+    os: &str,
+) -> Vec<PathBuf> {
+    let mut directories = inherited_path
+        .map(env::split_paths)
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+
+    if os == "macos" {
+        if let Some(prefix) = homebrew_prefix {
+            directories.push(prefix.join("bin"));
+        }
+        directories.push(PathBuf::from("/opt/homebrew/bin"));
+        directories.push(PathBuf::from("/usr/local/bin"));
+    }
+
+    let mut deduplicated = Vec::new();
+    for directory in directories {
+        if !deduplicated.contains(&directory) {
+            deduplicated.push(directory);
+        }
+    }
+    deduplicated
 }
 
 pub fn probe_local_toolchain(resolution: &LocalToolchainResolution) -> Vec<ToolStatus> {
@@ -258,7 +288,7 @@ fn probe_candidate(name: &str, path: Option<&Path>) -> ToolStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
+    use std::{ffi::OsStr, path::PathBuf};
 
     fn absolute_path(components: &[&str]) -> PathBuf {
         #[cfg(windows)]
@@ -278,6 +308,59 @@ mod tests {
             ffprobe: "ffprobe.exe".to_string(),
             deno: "deno.exe".to_string(),
         }
+    }
+
+    #[test]
+    fn macos_custom_discovery_uses_extensionless_names() {
+        let names = ExecutableNames {
+            yt_dlp: "yt-dlp".to_string(),
+            ffmpeg: "ffmpeg".to_string(),
+            ffprobe: "ffprobe".to_string(),
+            deno: "deno".to_string(),
+        };
+        let directory = absolute_path(&["opt", "homebrew", "bin"]);
+        let available = [
+            directory.join("yt-dlp"),
+            directory.join("ffmpeg"),
+            directory.join("ffprobe"),
+            directory.join("deno"),
+        ];
+
+        let resolution = resolve_local_toolchain_with(
+            &LocalToolchainConfig::default(),
+            &names,
+            &[directory],
+            |path| available.contains(&path.to_path_buf()),
+        )
+        .unwrap();
+
+        assert!(resolution.complete_paths().is_ok());
+    }
+
+    #[test]
+    fn finder_safe_search_adds_both_standard_homebrew_bins() {
+        let directories = tool_search_directories(Some(OsStr::new("/usr/bin:/bin")), None, "macos");
+        assert!(directories.contains(&PathBuf::from("/opt/homebrew/bin")));
+        assert!(directories.contains(&PathBuf::from("/usr/local/bin")));
+    }
+
+    #[test]
+    fn finder_safe_search_deduplicates_in_first_seen_order() {
+        let inherited_path = env::join_paths(["/usr/local/bin", "/usr/bin"]).unwrap();
+        let directories = tool_search_directories(
+            Some(&inherited_path),
+            Some(Path::new("/opt/homebrew")),
+            "macos",
+        );
+
+        assert_eq!(
+            directories,
+            vec![
+                PathBuf::from("/usr/local/bin"),
+                PathBuf::from("/usr/bin"),
+                PathBuf::from("/opt/homebrew/bin"),
+            ]
+        );
     }
 
     #[test]

@@ -1767,18 +1767,42 @@ fn default_download_directory() -> PathBuf {
 }
 
 fn app_data_root() -> Result<PathBuf, String> {
-    if cfg!(target_os = "windows") {
-        if let Ok(local_app_data) = env::var("LOCALAPPDATA") {
-            return Ok(PathBuf::from(local_app_data).join("yt-dlp-tauri"));
+    let home = home_directory();
+    let local_app_data = env::var_os("LOCALAPPDATA").map(PathBuf::from);
+    let xdg_data_home = env::var_os("XDG_DATA_HOME").map(PathBuf::from);
+    app_data_root_from(
+        env::consts::OS,
+        home.as_deref(),
+        local_app_data.as_deref(),
+        xdg_data_home.as_deref(),
+    )
+}
+
+fn app_data_root_from(
+    os: &str,
+    home: Option<&Path>,
+    local_app_data: Option<&Path>,
+    xdg_data_home: Option<&Path>,
+) -> Result<PathBuf, String> {
+    if os == "windows" {
+        if let Some(local_app_data) = local_app_data {
+            return Ok(local_app_data.join("yt-dlp-tauri"));
         }
+    } else if os == "macos" {
+        return home
+            .map(|home| {
+                home.join("Library")
+                    .join("Application Support")
+                    .join("yt-dlp-tauri")
+            })
+            .ok_or_else(|| "Unable to determine app data directory.".to_string());
     }
 
-    if let Ok(xdg_data_home) = env::var("XDG_DATA_HOME") {
-        return Ok(PathBuf::from(xdg_data_home).join("yt-dlp-tauri"));
+    if let Some(xdg_data_home) = xdg_data_home {
+        return Ok(xdg_data_home.join("yt-dlp-tauri"));
     }
 
-    home_directory()
-        .map(|home| home.join(".local").join("share").join("yt-dlp-tauri"))
+    home.map(|home| home.join(".local").join("share").join("yt-dlp-tauri"))
         .ok_or_else(|| "Unable to determine app data directory.".to_string())
 }
 
@@ -1960,18 +1984,19 @@ fn process_failure_message(
 }
 
 fn open_path(path: &Path) -> Result<(), String> {
-    let mut command = if cfg!(target_os = "windows") {
-        let mut command = Command::new("explorer");
-        command.arg(path);
-        command
-    } else {
-        let mut command = Command::new("xdg-open");
-        command.arg(path);
-        command
-    };
+    Command::new(open_path_program(env::consts::OS))
+        .arg(path)
+        .spawn()
+        .map(|_| ())
+        .map_err(to_string)
+}
 
-    command.spawn().map_err(to_string)?;
-    Ok(())
+fn open_path_program(os: &str) -> &'static str {
+    match os {
+        "windows" => "explorer",
+        "macos" => "open",
+        _ => "xdg-open",
+    }
 }
 
 fn to_string(error: impl std::fmt::Display) -> String {
@@ -1990,6 +2015,21 @@ fn join_error(error: impl std::fmt::Display) -> String {
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
+
+    #[test]
+    fn macos_state_uses_application_support() {
+        assert_eq!(
+            app_data_root_from("macos", Some(Path::new("/Users/test")), None, None).unwrap(),
+            PathBuf::from("/Users/test/Library/Application Support/yt-dlp-tauri"),
+        );
+    }
+
+    #[test]
+    fn platform_open_programs_are_native() {
+        assert_eq!(open_path_program("windows"), "explorer");
+        assert_eq!(open_path_program("macos"), "open");
+        assert_eq!(open_path_program("linux"), "xdg-open");
+    }
 
     #[test]
     fn production_manifest_uses_fixed_release_urls() {
