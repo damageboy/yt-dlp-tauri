@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+#[cfg(unix)]
+use std::time::{Duration, Instant};
 use std::{
     collections::BTreeSet,
     env,
@@ -14,6 +16,10 @@ use std::{
 };
 use tauri::{AppHandle, Emitter, Manager};
 
+mod aria2c;
+use aria2c::{Aria2cConfig, Aria2cSettings, Aria2cState, Aria2cStatus, ARIA2C_CONFIG_FILE};
+#[cfg(test)]
+mod test_support;
 pub mod toolchain;
 
 use toolchain::{
@@ -49,6 +55,7 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 #[derive(Debug, Serialize)]
 struct AppState {
+    aria2c: Aria2cSettings,
     download_directory: String,
     tools_root: String,
     toolchain_revision: Option<String>,
@@ -146,8 +153,78 @@ fn managed_archive_update_result(
 
 #[derive(Clone, Default)]
 struct DownloadProcessState {
-    active_pid: Arc<Mutex<Option<u32>>>,
-    cancel_requested: Arc<Mutex<bool>>,
+    active: Arc<Mutex<ActiveDownload>>,
+}
+
+#[derive(Default)]
+struct ActiveDownload {
+    running: bool,
+    pid: Option<u32>,
+    cancel_requested: bool,
+}
+
+struct DownloadGuard {
+    state: DownloadProcessState,
+    finished: bool,
+}
+impl DownloadGuard {
+    fn finish(mut self) -> Result<bool, String> {
+        let mut active = self.state.active.lock().map_err(lock_error)?;
+        let cancelled = active.cancel_requested;
+        *active = ActiveDownload::default();
+        self.finished = true;
+        Ok(cancelled)
+    }
+}
+impl Drop for DownloadGuard {
+    fn drop(&mut self) {
+        if self.finished {
+            return;
+        }
+        if let Ok(mut active) = self.state.active.lock() {
+            *active = ActiveDownload::default();
+        }
+    }
+}
+
+fn begin_download(state: &DownloadProcessState) -> Result<DownloadGuard, String> {
+    let mut active = state.active.lock().map_err(lock_error)?;
+    if active.running {
+        return Err("A download is already running.".into());
+    }
+    *active = ActiveDownload {
+        running: true,
+        ..Default::default()
+    };
+    Ok(DownloadGuard {
+        state: state.clone(),
+        finished: false,
+    })
+}
+
+#[tauri::command]
+async fn get_aria2c_settings(
+    state: tauri::State<'_, Aria2cState>,
+) -> Result<Aria2cSettings, String> {
+    state.settings()
+}
+
+#[tauri::command]
+async fn inspect_aria2c_config(config: Aria2cConfig) -> Result<Aria2cStatus, String> {
+    tauri::async_runtime::spawn_blocking(move || aria2c::inspect_aria2c(&config))
+        .await
+        .map_err(join_error)?
+}
+
+#[tauri::command]
+async fn save_aria2c_config(
+    state: tauri::State<'_, Aria2cState>,
+    config: Aria2cConfig,
+) -> Result<Aria2cSettings, String> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || state.save(config))
+        .await
+        .map_err(join_error)?
 }
 
 struct PreparedCookiesFile {
@@ -544,11 +621,20 @@ async fn parse_metadata(app: AppHandle, url: String) -> Result<VideoMetadata, St
 async fn download_video(
     app: AppHandle,
     process_state: tauri::State<'_, DownloadProcessState>,
+    aria2c_state: tauri::State<'_, Aria2cState>,
     request: DownloadRequest,
 ) -> Result<Option<String>, String> {
     let process_state = process_state.inner().clone();
+    let aria2c_config = aria2c_state.snapshot_config()?;
+    let guard = begin_download(&process_state)?;
 
     tauri::async_runtime::spawn_blocking(move || {
+        let aria2c_args = if aria2c_config.enabled {
+            let status = aria2c::inspect_aria2c(&aria2c_config)?;
+            aria2c::aria2c_downloader_args(&aria2c_config, &status)?
+        } else {
+            Vec::new()
+        };
         let platform = current_platform_definition()?;
         validate_http_url(&request.url)?;
         let tools = locate_tools(&app, &platform)?;
@@ -556,47 +642,36 @@ async fn download_video(
         ensure_writable_directories()?;
         let output_dir = download_directory()?;
         let cookies_file = prepared_cookies_file_for_url(&request.url)?;
-        append_log("download", &format!("Starting {} {}", request.label, request.url));
+        append_log(
+            "download",
+            &format!("Starting {} {}", request.label, request.url),
+        );
 
-        let mut command = background_command(&tools.yt_dlp);
+        let mut command = video_download_command(
+            &tools,
+            &output_dir,
+            &request,
+            cookies_file.as_ref().map(PreparedCookiesFile::path),
+            &aria2c_args,
+        );
+        // Cancellation and spawn registration share one lock, including the pre-spawn window.
+        let mut active = process_state.active.lock().map_err(lock_error)?;
+        if active.cancel_requested {
+            return Err("Download cancelled.".into());
+        }
         let mut child = command
-            .args([
-                "--ignore-config",
-                "--no-playlist",
-                "--newline",
-                "--paths",
-            ])
-            .arg(format!("home:{}", output_dir.display()))
-            .args(["--output", "%(title).200B [%(id)s].%(ext)s", "--format"])
-            .arg(if request.format_selector.trim().is_empty() {
-                "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b".to_string()
-            } else {
-                request.format_selector.clone()
-            })
-            .args(["--merge-output-format", "mp4", "--ffmpeg-location"])
-            .arg(&tools.ffmpeg_dir)
-            .args(["--js-runtimes"])
-            .arg(format!("deno:{}", tools.deno.display()))
-            .args(yt_dlp_cookie_args(
-                cookies_file.as_ref().map(PreparedCookiesFile::path),
-            ))
-            .args([
-                "--progress-template",
-                &format!(
-                    "{}%(progress.status)s|%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s",
-                    PROGRESS_PREFIX
-                ),
-                "--print",
-                &format!("after_move:{}%(filepath)s", OUTPUT_PATH_PREFIX),
-                "--progress",
-            ])
-            .arg(&request.url)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|error| format!("Failed to start yt-dlp at {}: {error}", tools.yt_dlp.display()))?;
+            .map_err(|error| {
+                format!(
+                    "Failed to start yt-dlp at {}: {error}",
+                    tools.yt_dlp.display()
+                )
+            })?;
         let pid = child.id();
-        set_active_process(&process_state, pid)?;
+        active.pid = Some(pid);
+        drop(active);
 
         emit_progress(
             &app,
@@ -649,14 +724,15 @@ async fn download_video(
             let _ = handle.join();
         }
 
+        if guard.finish()? {
+            append_log("download", "Cancelled by user.");
+            return Err("Download cancelled.".into());
+        }
         if !status.success() {
-            let details = stderr_lines.lock().map(|lines| lines.join("\n")).unwrap_or_default();
-            let cancelled = was_cancel_requested(&process_state);
-            clear_active_process(&process_state, pid);
-            if cancelled {
-                append_log("download", "Cancelled by user.");
-                return Err("Download cancelled.".to_string());
-            }
+            let details = stderr_lines
+                .lock()
+                .map(|lines| lines.join("\n"))
+                .unwrap_or_default();
             append_log("download", &format!("Failed. {details}"));
             return Err(process_failure_message(
                 "Download failed.",
@@ -665,8 +741,6 @@ async fn download_video(
                 &[],
             ));
         }
-
-        clear_active_process(&process_state, pid);
 
         emit_progress(
             &app,
@@ -680,7 +754,13 @@ async fn download_video(
         );
 
         let saved_path = output_path.lock().ok().and_then(|guard| guard.clone());
-        append_log("download", &format!("Completed. Output={}", saved_path.as_deref().unwrap_or("unknown")));
+        append_log(
+            "download",
+            &format!(
+                "Completed. Output={}",
+                saved_path.as_deref().unwrap_or("unknown")
+            ),
+        );
         Ok(saved_path)
     })
     .await
@@ -691,23 +771,23 @@ async fn download_video(
 async fn cancel_download(
     process_state: tauri::State<'_, DownloadProcessState>,
 ) -> Result<(), String> {
-    let pid = {
-        let guard = process_state.active_pid.lock().map_err(lock_error)?;
-        *guard
-    };
-
-    let Some(pid) = pid else {
-        return Ok(());
-    };
-
-    {
-        let mut guard = process_state.cancel_requested.lock().map_err(lock_error)?;
-        *guard = true;
-    }
-
-    tauri::async_runtime::spawn_blocking(move || kill_process_tree(pid))
+    let state = process_state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || request_download_cancel(&state))
         .await
         .map_err(join_error)?
+}
+
+fn request_download_cancel(state: &DownloadProcessState) -> Result<(), String> {
+    // Keep the group registered until cancellation has finished, even if its leader exits.
+    let mut active = state.active.lock().map_err(lock_error)?;
+    if !active.running {
+        return Ok(());
+    }
+    active.cancel_requested = true;
+    if let Some(pid) = active.pid {
+        kill_process_tree(pid)?;
+    }
+    Ok(())
 }
 
 fn locate_tools(
@@ -1401,34 +1481,12 @@ fn emit_tool_install_progress(app: &AppHandle, progress: ToolInstallProgress) {
     let _ = app.emit("tool-install-progress", progress);
 }
 
-fn set_active_process(state: &DownloadProcessState, pid: u32) -> Result<(), String> {
-    {
-        let mut guard = state.active_pid.lock().map_err(lock_error)?;
-        *guard = Some(pid);
-    }
-    {
-        let mut guard = state.cancel_requested.lock().map_err(lock_error)?;
-        *guard = false;
-    }
-    Ok(())
-}
-
-fn clear_active_process(state: &DownloadProcessState, pid: u32) {
-    if let Ok(mut guard) = state.active_pid.lock() {
-        if guard.is_some_and(|active_pid| active_pid == pid) {
-            *guard = None;
-        }
-    }
-    if let Ok(mut guard) = state.cancel_requested.lock() {
-        *guard = false;
-    }
-}
-
+#[cfg(test)]
 fn was_cancel_requested(state: &DownloadProcessState) -> bool {
     state
-        .cancel_requested
+        .active
         .lock()
-        .map(|guard| *guard)
+        .map(|active| active.cancel_requested)
         .unwrap_or(false)
 }
 
@@ -1467,6 +1525,7 @@ fn build_app_state(
         ManagedProviderDefinition::Homebrew { .. } => None,
     };
     Ok(AppState {
+        aria2c: app.state::<Aria2cState>().settings()?,
         download_directory: download_directory()?.display().to_string(),
         tools_root,
         toolchain_revision,
@@ -1484,32 +1543,123 @@ fn optional_input_path(value: Option<String>) -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
-fn kill_process_tree(pid: u32) -> Result<(), String> {
-    let pid_text = pid.to_string();
-    let mut command = if cfg!(target_os = "windows") {
-        let mut command = background_command("taskkill");
-        command.args(["/PID", &pid_text, "/T", "/F"]);
-        command
-    } else {
-        let mut command = background_command("kill");
-        command.args(["-TERM", &pid_text]);
-        command
-    };
-    let output = command
-        .output()
-        .map_err(|error| format!("Failed to start cancel command for process {pid}: {error}"))?;
+fn video_download_command(
+    tools: &ToolPaths,
+    output_dir: &Path,
+    request: &DownloadRequest,
+    cookies_file: Option<&Path>,
+    aria2c_args: &[std::ffi::OsString],
+) -> Command {
+    let mut command = download_process_command(&tools.yt_dlp);
+    command
+            .args([
+                "--ignore-config",
+                "--no-playlist",
+                "--newline",
+                "--paths",
+            ])
+            .arg(format!("home:{}", output_dir.display()))
+            .args(["--output", "%(title).200B [%(id)s].%(ext)s", "--format"])
+            .arg(if request.format_selector.trim().is_empty() {
+                "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b".to_string()
+            } else {
+                request.format_selector.clone()
+            })
+            .args(["--merge-output-format", "mp4", "--ffmpeg-location"])
+            .arg(&tools.ffmpeg_dir)
+            .args(["--js-runtimes"])
+            .arg(format!("deno:{}", tools.deno.display()))
+            .args(yt_dlp_cookie_args(
+                cookies_file,
+            ))
+            .args([
+                "--progress-template",
+                &format!(
+                    "{}%(progress.status)s|%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s",
+                    PROGRESS_PREFIX
+                ),
+                "--print",
+                &format!("after_move:{}%(filepath)s", OUTPUT_PATH_PREFIX),
+                "--progress",
+            ])
+            .args(aria2c_args)
+            .arg(&request.url)
+;
+    command
+}
 
-    if output.status.success() {
-        append_log("download", &format!("Cancel requested for process {pid}."));
-        Ok(())
-    } else {
-        Err(process_failure_message(
-            &format!("Failed to cancel process {pid}."),
-            output.status.code(),
-            &output.stderr,
-            &output.stdout,
-        ))
+fn download_process_command(program: impl AsRef<OsStr>) -> Command {
+    #[allow(unused_mut)]
+    let mut command = background_command(program);
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        command.process_group(0);
     }
+    command
+}
+
+#[cfg(unix)]
+fn process_group_exists(pid: u32) -> bool {
+    background_command("/bin/kill")
+        .args(["-0", "--", &format!("-{pid}")])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success())
+}
+
+fn kill_process_tree(pid: u32) -> Result<(), String> {
+    if pid == 0 || pid == std::process::id() {
+        return Err("Invalid download process group.".into());
+    }
+    #[cfg(windows)]
+    {
+        let output = background_command("taskkill")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .output()
+            .map_err(to_string)?;
+        if !output.status.success() {
+            return Err(process_failure_message(
+                "Failed to cancel download.",
+                output.status.code(),
+                &output.stderr,
+                &output.stdout,
+            ));
+        }
+    }
+    #[cfg(unix)]
+    {
+        for signal in ["-TERM", "-KILL"] {
+            if !process_group_exists(pid) {
+                return Ok(());
+            }
+            let output = background_command("/bin/kill")
+                .args([signal, "--", &format!("-{pid}")])
+                .output()
+                .map_err(to_string)?;
+            if !output.status.success() && process_group_exists(pid) {
+                return Err(process_failure_message(
+                    "Failed to cancel download.",
+                    output.status.code(),
+                    &output.stderr,
+                    &output.stdout,
+                ));
+            }
+            let deadline = Instant::now() + Duration::from_secs(2);
+            while Instant::now() < deadline {
+                if !process_group_exists(pid) {
+                    return Ok(());
+                }
+                thread::sleep(Duration::from_millis(50));
+            }
+        }
+        if process_group_exists(pid) {
+            return Err("Download subprocesses did not exit after cancellation.".into());
+        }
+    }
+    append_log("download", &format!("Cancelled process tree {pid}."));
+    Ok(())
 }
 
 fn download_directory() -> Result<PathBuf, String> {
@@ -2024,8 +2174,163 @@ fn join_error(error: impl std::fmt::Display) -> String {
     error.to_string()
 }
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    let aria2c_state = state_directory()
+        .map(|directory| Aria2cState::load(directory.join(ARIA2C_CONFIG_FILE)))
+        .unwrap_or_else(Aria2cState::unavailable);
+    tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .manage(DownloadProcessState::default())
+        .manage(aria2c_state)
+        .invoke_handler(tauri::generate_handler![
+            get_app_state,
+            get_aria2c_settings,
+            inspect_aria2c_config,
+            save_aria2c_config,
+            set_download_directory,
+            reset_download_directory,
+            set_cookies_file,
+            clear_cookies_file,
+            open_download_directory,
+            set_toolchain_source,
+            set_local_toolchain,
+            auto_detect_local_toolchain,
+            check_tools,
+            check_tools_with_manifest,
+            fetch_latest_tool_manifest,
+            check_managed_tool_updates,
+            install_tools,
+            install_tools_from_manifest,
+            reinstall_tools,
+            parse_metadata,
+            download_video,
+            cancel_download
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn completion_commits_before_late_cancellation_and_releases_once() {
+        let state = DownloadProcessState::default();
+        let guard = begin_download(&state).unwrap();
+        let barrier = Arc::new(std::sync::Barrier::new(2));
+        let peer_barrier = barrier.clone();
+        let peer_state = state.clone();
+        let cancel = thread::spawn(move || {
+            peer_barrier.wait();
+            request_download_cancel(&peer_state).unwrap();
+        });
+        assert!(!guard.finish().unwrap());
+        barrier.wait();
+        cancel.join().unwrap();
+        assert!(!was_cancel_requested(&state));
+        let next = begin_download(&state).unwrap();
+        request_download_cancel(&state).unwrap();
+        assert!(next.finish().unwrap());
+        assert!(begin_download(&state).is_ok());
+    }
+
+    #[test]
+    fn download_cancellation_is_remembered_before_spawn() {
+        let state = DownloadProcessState::default();
+        let _guard = begin_download(&state).unwrap();
+        assert!(begin_download(&state).is_err());
+        request_download_cancel(&state).unwrap();
+        assert!(was_cancel_requested(&state));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cancellation_terminates_a_child_that_ignores_term() {
+        use std::io::BufRead;
+        let root = crate::test_support::TestDirectory::new();
+        let exe = root.fixture("parent");
+        let mut parent = download_process_command(&exe)
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let pid = parent.id();
+        let mut line = String::new();
+        BufReader::new(parent.stdout.take().unwrap())
+            .read_line(&mut line)
+            .unwrap();
+        assert!(line.starts_with("child-ready:"), "{line}");
+        let child_pid: u32 = line.trim().split(':').nth(1).unwrap().parse().unwrap();
+        let reap = thread::spawn(move || parent.wait().unwrap());
+        let result = kill_process_tree(pid);
+        // Cleanup is unconditional even if the assertion will fail.
+        let _ = background_command("/bin/kill")
+            .args(["-KILL", "--", &child_pid.to_string()])
+            .stderr(Stdio::null())
+            .status();
+        assert!(!reap.join().unwrap().success());
+        assert!(result.is_ok(), "{result:?}");
+        assert!(!process_group_exists(pid));
+    }
+
+    #[test]
+    fn download_command_preserves_disabled_argv_and_adds_aria2c_before_url() {
+        let root = crate::test_support::TestDirectory::new();
+        let exe = root.fixture("capture");
+        let tools = ToolPaths {
+            root: root.0.clone(),
+            yt_dlp: exe.clone(),
+            ffmpeg: root.0.join("ffmpeg"),
+            ffmpeg_dir: root.0.clone(),
+            ffprobe: root.0.join("ffprobe"),
+            deno: root.0.join("deno"),
+        };
+        let request = DownloadRequest {
+            url: "https://example.test/video".into(),
+            format_selector: "best".into(),
+            label: "test".into(),
+        };
+        let baseline: Vec<String> = vec![
+            "--ignore-config".into(), "--no-playlist".into(), "--newline".into(), "--paths".into(), format!("home:{}", root.0.display()),
+            "--output".into(), "%(title).200B [%(id)s].%(ext)s".into(), "--format".into(), "best".into(), "--merge-output-format".into(), "mp4".into(),
+            "--ffmpeg-location".into(), root.0.display().to_string(), "--js-runtimes".into(), format!("deno:{}", tools.deno.display()),
+            "--progress-template".into(), "yt-dlp-tauri-progress:%(progress.status)s|%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s".into(),
+            "--print".into(), "after_move:yt-dlp-tauri-output:%(filepath)s".into(), "--progress".into(),
+        ];
+        for enabled in [false, true] {
+            let extra: Vec<std::ffi::OsString> = if enabled {
+                vec![
+                    "--downloader".into(),
+                    exe.as_os_str().to_owned(),
+                    "--downloader-args".into(),
+                    "aria2c:-j 1 -x 1 -s 1".into(),
+                ]
+            } else {
+                vec![]
+            };
+            let output = video_download_command(&tools, &root.0, &request, None, &extra)
+                .output()
+                .unwrap();
+            assert!(output.status.success());
+            let actual: Vec<_> = std::str::from_utf8(&output.stdout)
+                .unwrap()
+                .lines()
+                .map(str::to_string)
+                .collect();
+            let mut expected = baseline.clone();
+            if enabled {
+                expected.extend([
+                    "--downloader".into(),
+                    exe.display().to_string(),
+                    "--downloader-args".into(),
+                    "aria2c:-j 1 -x 1 -s 1".into(),
+                ]);
+            }
+            expected.push("https://example.test/video".into());
+            assert_eq!(actual, expected);
+        }
+    }
+
     use super::*;
     use std::collections::BTreeMap;
 
@@ -2486,35 +2791,4 @@ mod tests {
             ]
         );
     }
-}
-
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_dialog::init())
-        .manage(DownloadProcessState::default())
-        .invoke_handler(tauri::generate_handler![
-            get_app_state,
-            set_download_directory,
-            reset_download_directory,
-            set_cookies_file,
-            clear_cookies_file,
-            open_download_directory,
-            set_toolchain_source,
-            set_local_toolchain,
-            auto_detect_local_toolchain,
-            check_tools,
-            check_tools_with_manifest,
-            fetch_latest_tool_manifest,
-            check_managed_tool_updates,
-            install_tools,
-            install_tools_from_manifest,
-            reinstall_tools,
-            parse_metadata,
-            download_video,
-            cancel_download
-        ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
 }

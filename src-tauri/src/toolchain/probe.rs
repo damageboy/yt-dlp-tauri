@@ -130,7 +130,7 @@ fn run_bounded_probe(command: &mut Command, label: &str) -> Result<Output, Strin
     run_bounded_probe_with_timeout(command, label, COMBINATION_PROBE_TIMEOUT)
 }
 
-fn run_bounded_probe_with_timeout(
+pub(super) fn run_bounded_probe_with_timeout(
     command: &mut Command,
     label: &str,
     timeout: Duration,
@@ -252,7 +252,7 @@ fn probe_tool(
             relative_path: relative_path.to_string(),
             full_path: full_path.display().to_string(),
             availability: "available".to_string(),
-            version: first_line(&output.stdout),
+            version: first_line(&output.stdout).or_else(|| first_line(&output.stderr)),
             expected_version: None,
             error: None,
         },

@@ -1,3 +1,4 @@
+import { Aria2cSettingsDraft, parseParallelConnections, type Aria2cConfig, type Aria2cSettings, type Aria2cStatus } from "./aria2c-settings";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -45,6 +46,7 @@ type VideoMetadata = {
 };
 
 type AppState = {
+  aria2c: Aria2cSettings;
   download_directory: string;
   tools_root: string;
   toolchain_revision?: string | null;
@@ -104,6 +106,33 @@ const TOAST_AUTO_DISMISS_MS: Record<NoticeTone, number> = {
 
 const translations = {
   en: {
+    "aria2c.title": "aria2c external downloader",
+    "aria2c.hint": "Optional parallel transfers for supported formats",
+    "aria2c.enabled": "Use aria2c",
+    "aria2c.executable": "Executable",
+    "aria2c.usePath": "Use PATH",
+    "aria2c.refresh": "Refresh status",
+    "aria2c.parallel": "Parallelism",
+    "aria2c.parallelHint": "Sets concurrent items, connections per server per item, and splits to this value. This is not a total connection limit or the number of simultaneous videos.",
+    "aria2c.save": "Save",
+    "aria2c.saved": "aria2c settings saved",
+    "aria2c.saveFailed": "Could not save aria2c settings: {message}",
+    "aria2c.invalid": "Enter a whole number from 1 to 16",
+    "aria2c.notChecked": "Not checked",
+    "aria2c.disabled": "Disabled",
+    "aria2c.available": "Available",
+    "aria2c.checking": "Checking aria2c…",
+    "aria2c.notFound": "Not found — install aria2 or choose its executable",
+    "aria2c.invalidPath": "Invalid executable — choose aria2c (aria2c.exe on Windows)",
+    "aria2c.probeFailed": "Could not verify aria2c",
+    "aria2c.timeout": "aria2c verification timed out",
+    "aria2c.loadFailed": "Could not load saved settings; aria2c defaults to disabled",
+    "aria2c.configured": "Selected executable",
+    "aria2c.path": "PATH",
+    "aria2c.homebrew": "Homebrew",
+    "aria2c.appleSilicon": "Homebrew (Apple Silicon)",
+    "aria2c.intel": "Homebrew (Intel)",
+    "aria2c.choose": "Choose aria2c executable",
     "app.title": "yt-dlp-tauri",
     "app.eyebrow": "Desktop downloader",
     "app.heading": "Paste, choose, download.",
@@ -284,6 +313,33 @@ const translations = {
     "event.cookiesCleared": "Cookie file cleared.",
   },
   zh: {
+    "aria2c.title": "aria2c 外部下载器",
+    "aria2c.hint": "为支持的格式启用并行传输",
+    "aria2c.enabled": "使用 aria2c",
+    "aria2c.executable": "可执行文件",
+    "aria2c.usePath": "使用 PATH",
+    "aria2c.refresh": "刷新状态",
+    "aria2c.parallel": "并行度",
+    "aria2c.parallelHint": "将并发任务数、每个任务连接同一服务器的连接数和分片数设为此值。这不是总连接数上限，也不是同时下载的视频数量。",
+    "aria2c.save": "保存",
+    "aria2c.saved": "aria2c 设置已保存",
+    "aria2c.saveFailed": "无法保存 aria2c 设置：{message}",
+    "aria2c.invalid": "请输入 1 到 16 的整数",
+    "aria2c.notChecked": "尚未检查",
+    "aria2c.disabled": "已禁用",
+    "aria2c.available": "可用",
+    "aria2c.checking": "正在检查 aria2c…",
+    "aria2c.notFound": "未找到 — 请安装 aria2 或选择其可执行文件",
+    "aria2c.invalidPath": "可执行文件无效 — 请选择 aria2c（Windows 为 aria2c.exe）",
+    "aria2c.probeFailed": "无法验证 aria2c",
+    "aria2c.timeout": "aria2c 验证超时",
+    "aria2c.loadFailed": "无法读取已保存的设置；aria2c 默认禁用",
+    "aria2c.configured": "所选可执行文件",
+    "aria2c.path": "PATH",
+    "aria2c.homebrew": "Homebrew",
+    "aria2c.appleSilicon": "Homebrew（Apple Silicon）",
+    "aria2c.intel": "Homebrew（Intel）",
+    "aria2c.choose": "选择 aria2c 可执行文件",
     "app.title": "yt-dlp-tauri",
     "app.eyebrow": "桌面下载器",
     "app.heading": "粘贴，选择，下载。",
@@ -471,6 +527,8 @@ type NoticeTone = "success" | "warning" | "error";
 type UpdateTone = "neutral" | "success" | "warning" | "error";
 
 const state = {
+  aria2c: new Aria2cSettingsDraft(),
+  aria2cMessage: null as { key: TranslationKey; detail?: string } | null,
   metadata: null as VideoMetadata | null,
   selectedFormat: null as VideoFormatOption | null,
   busy: false,
@@ -511,6 +569,14 @@ let releaseNotesReturnFocus: HTMLElement | null = null;
 const toastTimers = new Map<HTMLElement, number>();
 
 const elements = {
+  aria2cEnabled: must<HTMLInputElement>("#aria2c-enabled"),
+  aria2cPath: must<HTMLElement>("#aria2c-path"),
+  aria2cParallel: must<HTMLInputElement>("#aria2c-parallel"),
+  aria2cStatus: must<HTMLElement>("#aria2c-status"),
+  chooseAria2c: must<HTMLButtonElement>("#choose-aria2c"),
+  usePathAria2c: must<HTMLButtonElement>("#use-path-aria2c"),
+  refreshAria2c: must<HTMLButtonElement>("#refresh-aria2c"),
+  saveAria2c: must<HTMLButtonElement>("#save-aria2c"),
   url: must<HTMLInputElement>("#url"),
   parse: must<HTMLButtonElement>("#parse"),
   download: must<HTMLButtonElement>("#download"),
@@ -616,6 +682,7 @@ function t(key: TranslationKey, values: Record<string, string | number> = {}) {
 }
 
 function applyTranslations() {
+  renderAria2c();
   document.documentElement.lang = state.language === "zh" ? "zh-CN" : "en";
   document.title = t("app.title");
 
@@ -691,6 +758,7 @@ function setSettingsOpen(isOpen: boolean) {
 
   if (isOpen) {
     elements.settingsClose.focus();
+    void inspectAria2c();
   } else {
     elements.settingsToggle.focus();
   }
@@ -750,6 +818,12 @@ function renderReleaseNotes() {
 }
 
 function bindEvents() {
+  elements.aria2cEnabled.addEventListener("change", () => editAria2c({ enabled: elements.aria2cEnabled.checked }));
+  elements.aria2cParallel.addEventListener("input", () => editAria2c({}));
+  elements.chooseAria2c.addEventListener("click", () => void chooseAria2c());
+  elements.usePathAria2c.addEventListener("click", () => { editAria2c({ executablePath: null }); void inspectAria2c(); });
+  elements.refreshAria2c.addEventListener("click", () => void inspectAria2c());
+  elements.saveAria2c.addEventListener("click", () => void saveAria2c());
   elements.parse.addEventListener("click", () => void parseCurrentUrl());
   elements.download.addEventListener("click", () => void downloadCurrentVideo());
   elements.cancel.addEventListener("click", () => void cancelCurrentDownload());
@@ -833,12 +907,90 @@ async function bootstrap() {
   await verifyTools({ quietReady: true });
 }
 
+function editAria2c(patch: Partial<Aria2cConfig>) {
+  if (state.busy) return;
+  state.aria2c.edit(patch, elements.aria2cParallel.value);
+  state.aria2cMessage = null;
+  renderAria2c();
+}
+
+async function chooseAria2c() {
+  if (state.busy) return;
+  try {
+    const filters = executablePickerFilters(state.platform);
+    const selected = await open({ title: t("aria2c.choose"), directory: false, multiple: false, ...(filters.length ? { filters } : {}) });
+    if (typeof selected !== "string") return;
+    editAria2c({ executablePath: selected });
+    await inspectAria2c();
+  } catch (error) {
+    state.aria2cMessage = { key: "aria2c.probeFailed", detail: String(error) };
+    renderAria2c();
+  }
+}
+
+async function inspectAria2c() {
+  if (state.busy || parseParallelConnections(state.aria2c.parallelInput) === null) return;
+  state.aria2cMessage = null;
+  const pending = state.aria2c.inspect(config => invoke<Aria2cStatus>("inspect_aria2c_config", { config }));
+  renderAria2c();
+  await pending;
+  renderAria2c();
+}
+
+async function saveAria2c() {
+  if (state.busy || parseParallelConnections(state.aria2c.parallelInput) === null) return;
+  state.aria2cMessage = null;
+  setBusy(true);
+  try {
+    await state.aria2c.save(config => invoke<Aria2cSettings>("save_aria2c_config", { config }));
+    state.aria2cMessage = { key: "aria2c.saved" };
+  } catch (error) {
+    state.aria2cMessage = { key: "aria2c.saveFailed", detail: String(error) };
+  } finally {
+    setBusy(false);
+  }
+}
+
+function renderAria2c() {
+  const draft = state.aria2c;
+  const status = draft.status;
+  const invalid = parseParallelConnections(draft.parallelInput) === null;
+  elements.aria2cEnabled.checked = draft.config.enabled;
+  if (elements.aria2cParallel.value !== draft.parallelInput) elements.aria2cParallel.value = draft.parallelInput;
+  elements.aria2cParallel.setAttribute("aria-invalid", String(invalid));
+  elements.aria2cPath.textContent = status.executablePath ?? draft.config.executablePath ?? t("aria2c.path");
+  elements.aria2cPath.title = elements.aria2cPath.textContent;
+  const sources: Record<NonNullable<Aria2cStatus["source"]>, TranslationKey> = {
+    configured: "aria2c.configured", path: "aria2c.path", "homebrew-prefix": "aria2c.homebrew",
+    "homebrew-apple-silicon": "aria2c.appleSilicon", "homebrew-intel": "aria2c.intel",
+  };
+  const errors: Record<string, TranslationKey> = {
+    "not-found": "aria2c.notFound", "invalid-path": "aria2c.invalidPath", "probe-failed": "aria2c.probeFailed", timeout: "aria2c.timeout",
+  };
+  let message: string;
+  if (invalid) message = t("aria2c.invalid");
+  else if (state.aria2cMessage) message = t(state.aria2cMessage.key, { message: state.aria2cMessage.detail ?? "" });
+  else if (draft.inspecting) message = t("aria2c.checking");
+  else if (status.errorCode) message = [t(errors[status.errorCode] ?? "aria2c.probeFailed"), status.error].filter(Boolean).join(" · ");
+  else if (status.available) message = [t("aria2c.available"), status.source ? t(sources[status.source]) : null, status.version].filter(Boolean).join(" · ");
+  else message = t("aria2c.notChecked");
+  if (!draft.config.enabled) message = t("aria2c.disabled") + " · " + message;
+  if (draft.saved.loadError) message = t("aria2c.loadFailed") + " · " + draft.saved.loadError + " · " + message;
+  elements.aria2cStatus.textContent = message;
+  elements.aria2cStatus.classList.toggle("is-error", invalid || !!status.errorCode || !!draft.saved.loadError || state.aria2cMessage?.key === "aria2c.saveFailed");
+  for (const control of [elements.aria2cEnabled, elements.aria2cParallel, elements.chooseAria2c, elements.usePathAria2c, elements.refreshAria2c, elements.saveAria2c]) control.disabled = state.busy;
+  elements.saveAria2c.disabled ||= invalid;
+  elements.refreshAria2c.disabled ||= invalid || draft.inspecting;
+}
+
 async function loadAppState() {
   const appState = await invoke<AppState>("get_app_state");
   applyAppState(appState);
 }
 
 function applyAppState(appState: AppState) {
+  if (appState.aria2c) state.aria2c.applySaved(appState.aria2c);
+  renderAria2c();
   elements.folderText.textContent = appState.download_directory;
   elements.folderInput.value = appState.download_directory;
   state.toolchainRevision = appState.toolchain_revision ?? null;
@@ -1679,6 +1831,7 @@ function renderCookiesFile(file: string | null) {
 }
 
 function updateButtons() {
+  renderAria2c();
   const hasUrl = elements.url.value.trim().length > 0;
   elements.parse.disabled = state.busy || !hasUrl || !state.toolsReady;
   elements.download.disabled = state.busy || !state.metadata || !state.selectedFormat || !state.toolsReady;

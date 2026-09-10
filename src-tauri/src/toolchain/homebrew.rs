@@ -37,12 +37,22 @@ struct SystemProcessRunner;
 
 impl ProcessRunner for SystemProcessRunner {
     fn run(&self, program: &Path, args: &[OsString]) -> Result<ProcessOutput, String> {
-        let output = Command::new(program).args(args).output().map_err(|error| {
-            format!(
-                "Failed to run Homebrew executable {}: {error}",
-                program.display()
-            )
-        })?;
+        let mut command = Command::new(program);
+        command.args(args);
+        let output = if args == [OsString::from("--prefix")] {
+            super::probe::run_bounded_probe_with_timeout(
+                &mut command,
+                "Homebrew prefix query",
+                std::time::Duration::from_secs(10),
+            )?
+        } else {
+            command.output().map_err(|error| {
+                format!(
+                    "Failed to run Homebrew executable {}: {error}",
+                    program.display()
+                )
+            })?
+        };
         Ok(ProcessOutput {
             success: output.status.success(),
             exit_code: output.status.code(),
@@ -580,6 +590,16 @@ fn require_ready(statuses: Vec<ToolStatus>) -> Result<Vec<ToolStatus>, String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn prefix_query_terminates_after_its_deadline() {
+        let root = crate::test_support::TestDirectory::new();
+        let exe = root.fixture("sleep");
+        let start = std::time::Instant::now();
+        let result = SystemProcessRunner.run(&exe, &["--prefix".into()]);
+        assert!(result.unwrap_err().contains("timed out"));
+        assert!(start.elapsed() < std::time::Duration::from_secs(15));
+    }
+
     use super::*;
     use crate::toolchain::{bundled_platform_catalog, platform_definition_from};
     use std::{cell::RefCell, collections::VecDeque, ffi::OsStr};

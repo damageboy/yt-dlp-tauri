@@ -164,6 +164,16 @@ Custom 模式接受无扩展名的 `yt-dlp` 和 `deno` 可执行文件绝对路�
 
 应用会运行自定义/本地工具的版本命令，并执行与受管工具相同的确定性媒体兼容性测试。应用不会固定自定义/本地文件哈希、安装更新或替换这些可执行文件。它们以当前用户权限运行；所选 yt-dlp 会接收视频 URL 和 Cookie 文件，因此应只配置可信的可执行文件。
 
+## 可选的 aria2c 下载器
+
+请自行安装 aria2c（macOS 使用 `brew install aria2`），然后打开 **设置 → aria2c 外部下载器**。选择可执行文件或点击 **使用 PATH**，打开 **使用 aria2c**，将 **并行度** 设为 1 到 16 的整数，再点击 **保存**。默认禁用，并行度默认为 16。
+
+查找顺序为：所选绝对路径、PATH、macOS Homebrew 路径（包括自定义 Homebrew 前缀）。**刷新状态** 显示版本或具体错误。所选文件失效时不会静默改用其他安装；即使文件消失，也可以保存禁用设置以恢复普通下载。
+
+并行度 N 生成 `--downloader <绝对路径> --downloader-args "aria2c:-j N -x N -s N"`，分别设置并发任务数、每个任务连接同一服务器的连接数和分片数。N 不是总连接数上限，也不是同时下载的视频数量。yt-dlp 根据协议选择下载器，某些格式仍使用原生下载器。没有数值进度时显示不确定进度条。
+
+设置保存在 `state/aria2c.json`。aria2c 独立于必需的 yt-dlp/FFmpeg/Deno 工具链，其安装、更新和移除均由用户管理。详见 [aria2c 配置与验证](docs/aria2c.md)。
+
 ## 工具链维护
 
 `Toolchain Discovery` workflow 每周解析一次 yt-dlp、Deno、FFmpeg 和 FFprobe，并维护一个经人工审核的 `bot/toolchain-weekly` PR。`Toolchain Freshness` 每天检查已发布的来源 URL，并为失效来源创建独立的紧急 PR。所有变更都需要维护者审核后合并。

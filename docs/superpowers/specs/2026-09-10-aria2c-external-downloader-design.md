@@ -1,6 +1,8 @@
 # aria2c External Downloader Design
 
-**Status:** Approved for planning
+**Status:** Planning complete; implementation not started
+
+**Implementation:** [OpenSpec checklist](../../../openspec/changes/aria2c-external-downloader/tasks.md)
 
 **Date:** 2026-09-10
 
@@ -8,7 +10,7 @@
 
 Add optional aria2c integration for video downloads. Users can enable aria2c in
 Settings, choose an absolute executable or let the app discover it, and set one
-bounded parallel-connections value. When enabled and validated, the backend passes
+bounded parallelism value. When enabled and validated, the backend passes
 aria2c to yt-dlp as an external downloader using direct process arguments.
 
 aria2c remains a user-managed optional dependency. The app does not download,
@@ -20,7 +22,7 @@ bundle, update, or execute it through a shell.
 - Discover a user-installed aria2c from a configured path or supported search
   locations.
 - Let users select an executable, return to PATH discovery, enable or disable the
-  integration, and set parallel connections from 1 through 16.
+  integration, and set parallelism from 1 through 16.
 - Validate aria2c before an enabled configuration is saved and immediately before a
   download starts.
 - Apply aria2c only to the existing video-download command; metadata parsing remains
@@ -48,13 +50,14 @@ Settings gains an **aria2c external downloader** section with:
 - executable source/status showing the configured or discovered absolute path;
 - **Choose executable** action using the existing native file-picker pattern;
 - **Use PATH** action, which clears the configured path and reruns discovery;
-- **Parallel connections** whole-number input with default `16`, minimum `1`,
+- **Parallelism** whole-number input with default `16`, minimum `1`,
   maximum `16`, and step `1`;
+- **Refresh status** action for explicit inspection;
 - explicit **Save** action.
 
 The section distinguishes these states:
 
-- disabled;
+- disabled or not yet checked;
 - available from a configured path;
 - available from PATH or a Finder-safe macOS location;
 - not found;
@@ -68,9 +71,10 @@ probe succeed. A failed enabled save leaves the previously persisted configurati
 unchanged and shows an actionable error. Saving with the toggle disabled must remain
 possible even if a previously configured executable has disappeared.
 
-The parallel-connections setting controls concurrency inside the aria2c process for
-the current video download. It does not control how many top-level videos the app
-downloads at once.
+The Parallelism setting maps one N to `-j N -x N -s N`. It is not a total
+connection cap: `-j` limits concurrent items, while `-x` and `-s` apply within each
+item. It does not control how many top-level videos the app downloads at once.
+The persisted key remains `parallelConnections`.
 
 All new labels, statuses, validation messages, and errors are provided in the
 existing English and Chinese UI variants.
@@ -109,10 +113,12 @@ Contracts:
 - Missing configuration produces the defaults shown above.
 - Malformed configuration must never enable aria2c implicitly. The backend exposes
   the load error and uses disabled safe defaults until the user saves a valid value.
-- Save follows the repository's existing settings persistence conventions and must
-  not replace the prior valid file when validation fails.
+- Save writes and syncs a same-directory temporary file, reuses the existing
+  platform atomic-replacement primitive, then updates memory under a serialized
+  commit lock. Pre-commit failures preserve the prior valid file and memory.
 
-`AppState` owns the current validated configuration and computed resolution status.
+`AppState` exposes saved configuration from managed `Aria2cState`; inspection
+returns computed status without persisting it.
 The frontend reads and updates it through focused Tauri commands rather than reading
 or writing the JSON file directly.
 
@@ -129,8 +135,14 @@ Resolution is backend-owned and deterministic.
 
 1. `executablePath` when configured;
 2. inherited process `PATH`;
-3. on macOS only, `/opt/homebrew/bin/aria2c`;
-4. on macOS only, `/usr/local/bin/aria2c`.
+3. on macOS only, `<resolved Homebrew prefix>/bin/aria2c`, using the existing Homebrew resolver;
+4. on macOS only, `/opt/homebrew/bin/aria2c`;
+5. on macOS only, `/usr/local/bin/aria2c`.
+
+Resolve Homebrew lazily after PATH fails. Bound its `brew --prefix` query to ten
+seconds. Failure to locate Homebrew does not prevent checking standard fallback
+paths. Preserve absolute symlink invocation paths; do not canonicalize away the
+`aria2c`/`aria2c.exe` basename yt-dlp uses for downloader identification.
 
 The explicit path is authoritative: when configured, the backend must report its
 failure rather than silently switching to a different PATH installation. Finder-safe
@@ -149,16 +161,24 @@ Validate the resolved executable by invoking it directly with:
 <absolute-aria2c-path> --version
 ```
 
-A valid probe requires the process to start and exit successfully. Capture a bounded,
+A valid probe requires the process to start, exit successfully, and identify aria2
+in its version output. Reuse the existing ten-second version-probe deadline; kill
+and reap a timed-out child. Capture a bounded,
 user-displayable version summary from stdout or stderr using existing log/error
 sanitization conventions.
 
 Probe at these boundaries:
 
-1. before committing a save that enables aria2c;
-2. immediately before constructing/spawning an enabled video download.
+1. explicit Settings inspection (Refresh, Choose executable, or Use PATH);
+2. before committing a save that enables aria2c;
+3. immediately before constructing/spawning an enabled video download.
 
-The second probe handles executables that are moved, removed, or replaced after
+General AppState refresh and startup return saved settings without probing.
+Disabled Save and disabled downloads never invoke discovery or the version probe.
+Before an inspection, display Not checked rather than Not found. An inspection
+response for an older draft must not overwrite the current draft status.
+
+The pre-download probe handles executables that are moved, removed, or replaced after
 Settings was saved. Failure stops before yt-dlp starts and tells the user to disable
 aria2c, select a valid executable, or restore it to PATH.
 
@@ -177,8 +197,8 @@ Expose backend operations equivalent to:
 - resolve and probe the active executable before a download;
 - construct the optional yt-dlp argument fragment from validated state.
 
-Concrete command and Rust type names are locked in the implementation plan after
-checking the repository's existing settings-command naming conventions.
+The implementation plan defines `get_aria2c_settings`, `inspect_aria2c_config`, and
+`save_aria2c_config` with `Aria2cConfig`, `Aria2cStatus`, and `Aria2cSettings` payloads.
 
 ## yt-dlp Command Construction
 
@@ -227,16 +247,22 @@ The enabled video-download flow is:
 
 Windows retains the existing `taskkill /T` process-tree behavior. On Unix, yt-dlp is
 started in its own process group and cancellation targets that group rather than only
-the yt-dlp PID. Preserve existing cancellation result/error semantics while ensuring
-an aria2c child is not left running.
+the yt-dlp PID. Wait up to two seconds after TERM, then escalate to KILL if group
+members remain, retaining group identity until cleanup completes. Preserve existing
+cancellation result/error semantics while ensuring an aria2c child is not left running.
 
 Metadata parsing never reads this configuration and never receives aria2c arguments.
+Snapshot saved configuration at download command entry so later settings edits cannot
+change an already-starting download. Preserve indeterminate progress when yt-dlp does
+not emit numeric updates for its external downloader; do not infer actual aria2c use
+from the enabled setting. Verify actual subprocess use with the installed yt-dlp
+version and selected protocol.
 
 ## Error Handling
 
 | Condition | Result |
 | --- | --- |
-| aria2c disabled | Preserve current behavior; do not resolve or probe aria2c |
+| Disabled download or Save | Preserve current behavior; do not resolve or probe aria2c |
 | Enabled save with no executable | Reject save and show discovery guidance |
 | Configured path is relative | Reject configuration |
 | Parallel value outside `1..=16` or non-integral | Reject in UI and backend |
@@ -265,15 +291,16 @@ Metadata parsing never reads this configuration and never receives aria2c argume
 
 ### Rust unit tests
 
-- Default config is schema version `1`, disabled, path `null`, and parallel value
+- Default config is schema version `1`, disabled, path `null`, and parallelism value
   `16`.
 - Valid JSON round-trips; unknown fields, unsupported versions, relative paths,
   non-integral values, and values outside `1..=16` fail.
 - Missing config returns defaults; malformed config produces disabled safe state and
   a visible load error.
 - Explicit paths take precedence over PATH and do not fall back after failure.
-- PATH takes precedence over Finder-safe Homebrew directories.
-- macOS fallback order is `/opt/homebrew/bin` then `/usr/local/bin`.
+- PATH takes precedence over resolved and standard Homebrew directories.
+- A nonstandard resolved Homebrew prefix precedes standard Homebrew locations.
+- After the resolved Homebrew prefix, fallback order is `/opt/homebrew/bin` then `/usr/local/bin`.
 - Platform executable names are `aria2c.exe` on Windows and `aria2c` on Unix.
 - Probe invokes the absolute path with exactly `--version` and classifies launch,
   exit-status, and output results.
@@ -329,7 +356,7 @@ Update:
 - `README_zh.md` with equivalent guidance;
 - the nearest directory `AGENTS.md` records for every changed or added source, test,
   and documentation file;
-- architecture/state documentation with the `aria2c.json` schema, resolution order,
+- `docs/aria2c.md` with the `aria2c.json` schema, resolution order,
   validation boundaries, and process-group cancellation behavior.
 
 Documentation must clearly distinguish aria2c connection parallelism for one current
@@ -341,7 +368,7 @@ video from application-level parallel video downloads.
 - Settings can choose an absolute aria2c executable or return to discovery mode.
 - Discovery follows configured path, PATH, and macOS Homebrew fallback precedence.
 - Enabling cannot be saved until the resolved executable passes `--version`.
-- Parallel connections accepts only whole numbers from `1` through `16` and defaults
+- Parallelism accepts only whole numbers from `1` through `16` and defaults
   to `16`.
 - Enabled video downloads pass the resolved absolute path and generated
   `aria2c:-j N -x N -s N` arguments to yt-dlp.
@@ -353,3 +380,12 @@ video from application-level parallel video downloads.
 - English and Chinese Settings UI and README documentation describe the feature.
 - Existing frontend tests, Rust tests, builds, disabled download behavior, and
   Windows process-tree cancellation remain green.
+
+## Planning verification refinements
+
+- Canonical requirements and executable checklist live in `openspec/changes/aria2c-external-downloader/`.
+- Unit tests must use native absolute fixture paths and actually register the new Rust module before the first red test.
+- Use behavioral command/process tests; source-string assertions alone cannot prove downloader selection or cancellation.
+- Reuse existing picker filters and indeterminate progress rendering. No aria2c RPC subsystem is required.
+- Native macOS acceptance covers controlled HTTP Range transfers, actual aria2c argv, final checksum, and YouTube format/protocol selection.
+- Windows cancellation requires native Windows execution; report the gate outstanding when a host is unavailable.

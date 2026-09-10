@@ -164,6 +164,16 @@ Custom mode accepts absolute paths to extensionless `yt-dlp` and `deno` executab
 
 Custom/local tools are checked by running their version commands and the same deterministic media compatibility fixture used for managed tools. The app does not pin hashes, install updates, or replace custom/local executables. These programs run with the user's permissions; the selected yt-dlp executable receives video URLs and the selected Cookie file, so configure only trusted binaries.
 
+## Optional aria2c downloader
+
+Install aria2c yourself (`brew install aria2` on macOS), then open **Settings → aria2c external downloader**. Choose an executable or **Use PATH**, turn on **Use aria2c**, choose **Parallelism** from 1 to 16, and **Save**. The default is off, with parallelism 16.
+
+The executable is discovered from the selected absolute path, PATH, or macOS Homebrew locations (including a custom Homebrew prefix). **Refresh status** shows its version or an actionable error. An explicitly selected invalid executable does not silently fall back to another installation. Disabled settings can always be saved after a previously selected executable disappears.
+
+One parallelism value N generates `--downloader <absolute path> --downloader-args "aria2c:-j N -x N -s N"`. These options set concurrent items, connections per server per item, and splits. N is not a total connection cap or the number of simultaneous videos. yt-dlp chooses eligible protocols; some formats use its native downloader. The progress bar remains indeterminate when no numeric progress is available.
+
+Settings persist in `state/aria2c.json`. aria2c remains independent from the required yt-dlp/FFmpeg/Deno toolchain: its installation, update and removal are user-managed. See [aria2c configuration and verification](docs/aria2c.md).
+
 ## Toolchain Maintenance
 
 The `Toolchain Discovery` workflow resolves yt-dlp, Deno, FFmpeg, and FFprobe once per week and maintains one reviewed `bot/toolchain-weekly` pull request. `Toolchain Freshness` checks released source URLs daily and opens a focused emergency pull request for an affected source. Both workflows require human review before merge.

@@ -14,6 +14,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+pub(crate) use activation::atomic_replace;
 pub use activation::{
     activate_revision, active_state_path, active_tool_paths, read_active_state, revision_root,
     revisions_root, ActiveToolchainState, REVISION_MANIFEST_FILE,
@@ -41,6 +42,7 @@ pub use platform::{
     HomebrewPackageDefinition, ManagedProviderDefinition, ManagedProviderKind, PlatformCatalog,
     PlatformPresentation, PlatformToolchainDefinition, ProviderCapabilities, SourceLabels,
 };
+pub(crate) use probe::probe_executable;
 pub use probe::{probe_target, require_tools, verify_toolchain_combination};
 
 pub const TOOLS_DIRECTORY: &str = "Tools";

@@ -119,6 +119,33 @@
         </div>
       </section>
 
+      <section class="settings-section aria2c-section" aria-labelledby="aria2c-heading">
+        <div class="settings-section-header">
+          <h3 id="aria2c-heading" data-i18n="aria2c.title">aria2c external downloader</h3>
+          <p data-i18n="aria2c.hint">Optional parallel transfers for supported formats</p>
+        </div>
+        <label class="aria2c-toggle" for="aria2c-enabled">
+          <input id="aria2c-enabled" type="checkbox" />
+          <span data-i18n="aria2c.enabled">Use aria2c</span>
+        </label>
+        <div class="aria2c-path-row">
+          <span data-i18n="aria2c.executable">Executable</span>
+          <code id="aria2c-path"></code>
+        </div>
+        <div class="aria2c-actions">
+          <button id="choose-aria2c" class="button secondary compact" type="button" data-i18n="action.choosePath">Choose</button>
+          <button id="use-path-aria2c" class="button secondary compact" type="button" data-i18n="aria2c.usePath">Use PATH</button>
+          <button id="refresh-aria2c" class="button secondary compact" type="button" data-i18n="aria2c.refresh">Refresh status</button>
+        </div>
+        <label class="aria2c-parallel-row" for="aria2c-parallel">
+          <span data-i18n="aria2c.parallel">Parallelism</span>
+          <input id="aria2c-parallel" type="number" min="1" max="16" step="1" value="16" aria-describedby="aria2c-parallel-hint aria2c-status" />
+        </label>
+        <p id="aria2c-parallel-hint" class="aria2c-help" data-i18n="aria2c.parallelHint">Sets concurrent items, connections per server per item, and splits to this value. This is not a total connection limit or the number of simultaneous videos.</p>
+        <p id="aria2c-status" class="aria2c-status" role="status" aria-live="polite"></p>
+        <button id="save-aria2c" class="button primary compact" type="button" data-i18n="aria2c.save">Save</button>
+      </section>
+
       <section class="settings-section github-site-section" aria-labelledby="github-site-heading">
         <div class="github-access-row">
           <h3 id="github-site-heading" data-i18n="settings.githubSite">GitHub site</h3>

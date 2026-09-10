@@ -278,23 +278,23 @@ fn unique_nonce() -> Result<u128, String> {
 }
 
 #[cfg(unix)]
-fn atomic_replace(temporary: &Path, destination: &Path) -> Result<(), String> {
+pub(crate) fn atomic_replace(temporary: &Path, destination: &Path) -> Result<(), String> {
     fs::rename(temporary, destination).map_err(|error| {
         format!(
-            "Failed to activate toolchain state {}: {error}",
+            "Failed to replace state file {}: {error}",
             destination.display()
         )
     })?;
     let parent = destination
         .parent()
-        .ok_or_else(|| "Active toolchain state has no parent directory".to_string())?;
+        .ok_or_else(|| "State file has no parent directory".to_string())?;
     // Rename is the commit point; a later directory-sync error cannot be reported as a rollback-safe failure.
     let _ = File::open(parent).and_then(|directory| directory.sync_all());
     Ok(())
 }
 
 #[cfg(windows)]
-fn atomic_replace(temporary: &Path, destination: &Path) -> Result<(), String> {
+pub(crate) fn atomic_replace(temporary: &Path, destination: &Path) -> Result<(), String> {
     use std::{iter, os::windows::ffi::OsStrExt, ptr};
     use windows_sys::Win32::Storage::FileSystem::{
         MoveFileExW, ReplaceFileW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH,
@@ -330,7 +330,7 @@ fn atomic_replace(temporary: &Path, destination: &Path) -> Result<(), String> {
     };
     if replaced == 0 {
         Err(format!(
-            "Failed to activate toolchain state {}: {}",
+            "Failed to replace state file {}: {}",
             destination.display(),
             std::io::Error::last_os_error()
         ))
