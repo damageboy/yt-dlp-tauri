@@ -54,3 +54,32 @@ jobs:
 
       - name: Check Rust backend
         run: cargo check --manifest-path ./src-tauri/Cargo.toml
+
+  verify-macos:
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: cargo test --manifest-path ./src-tauri/Cargo.toml --lib --bins --tests
+      - run: cargo check --manifest-path ./src-tauri/Cargo.toml --all-targets
+      - run: npm run tauri build -- --debug --bundles app
+      - run: test -d src-tauri/target/debug/bundle/macos/yt-dlp-tauri.app
