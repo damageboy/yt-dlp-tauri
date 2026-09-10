@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
+  canReinstallManagedTools,
   executablePickerFilters,
   managedActionConfirmationKey,
   managedSummaryMode,
@@ -43,4 +45,29 @@ test("Windows preserves executable pickers and archive behavior", () => {
   assert.equal(managedSummaryMode(windows), "managed");
   assert.equal(showsRevision(windows), true);
   assert.equal(managedActionConfirmationKey(windows, "install"), null);
+});
+
+test("missing Homebrew disables the standalone reinstall action", () => {
+  assert.equal(canReinstallManagedTools(macos, "managed", true), false);
+  assert.equal(canReinstallManagedTools(macos, "managed", false), true);
+  assert.equal(canReinstallManagedTools(macos, "local", false), false);
+});
+
+test("reinstall visibility and invocation share the provider availability guard", () => {
+  const source = readFileSync("src/main.ts", "utf8");
+  const handler = source.slice(
+    source.indexOf("async function reinstallTools()"),
+    source.indexOf("async function parseCurrentUrl()"),
+  );
+
+  assert.match(
+    source,
+    /elements\.reinstallTools\.hidden = !canReinstallManagedTools\(/u,
+  );
+  assert.match(
+    source,
+    /elements\.reinstallTools\.disabled =[\s\S]*?!canReinstallManagedTools\(/u,
+  );
+  assert.match(handler, /!canReinstallManagedTools\(/u);
+  assert.match(handler, /invoke<ToolStatus\[\]>\("reinstall_tools"/u);
 });

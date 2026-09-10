@@ -7,6 +7,7 @@ import packageInfo from "../package.json";
 import { releaseNotesForVersion, shouldShowReleaseNotes, stripTerminalSentencePunctuation } from "./release-notes";
 import { thumbnailUrlCandidates } from "./thumbnail";
 import {
+  canReinstallManagedTools,
   executablePickerFilters,
   managedActionConfirmationKey,
   managedSummaryMode,
@@ -1065,7 +1066,14 @@ async function checkToolUpdates() {
 }
 
 async function reinstallTools() {
-  if (state.busy || state.toolchainSource !== "managed") {
+  if (
+    state.busy ||
+    !canReinstallManagedTools(
+      state.platform,
+      state.toolchainSource,
+      state.managedProviderMissing,
+    )
+  ) {
     return;
   }
 
@@ -1515,7 +1523,11 @@ function renderToolchainSource() {
   elements.homebrewHelp.hidden = isLocal || !state.managedProviderMissing;
   elements.autoDetectLocalTools.title = t("settings.usePathHint");
   elements.checkToolUpdates.hidden = isLocal || !state.platform.capabilities.update;
-  elements.reinstallTools.hidden = isLocal || !state.platform.capabilities.reinstall;
+  elements.reinstallTools.hidden = !canReinstallManagedTools(
+    state.platform,
+    state.toolchainSource,
+    state.managedProviderMissing,
+  );
   updateToolActionButton();
 }
 
@@ -1674,8 +1686,11 @@ function updateButtons() {
     state.busy || !state.toolAction || !supportsManagedAction(state.toolAction);
   elements.reinstallTools.disabled =
     state.busy ||
-    state.toolchainSource !== "managed" ||
-    !state.platform.capabilities.reinstall;
+    !canReinstallManagedTools(
+      state.platform,
+      state.toolchainSource,
+      state.managedProviderMissing,
+    );
   elements.browseFolder.disabled = state.busy;
   elements.saveFolder.disabled = state.busy;
   elements.resetFolder.disabled = state.busy;

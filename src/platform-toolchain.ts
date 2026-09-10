@@ -56,6 +56,18 @@ export function managedActionConfirmationKey(
   return "settings.homebrewReinstallConfirm";
 }
 
+export function canReinstallManagedTools(
+  platform: PlatformPresentation,
+  source: "managed" | "local",
+  managedProviderMissing: boolean,
+): boolean {
+  return (
+    source === "managed" &&
+    platform.capabilities.reinstall &&
+    !managedProviderMissing
+  );
+}
+
 export function showsRevision(platform: PlatformPresentation): boolean {
   return platform.managedProvider === "archive-manifest";
 }
