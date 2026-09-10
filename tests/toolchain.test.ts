@@ -3,8 +3,10 @@ import test from "node:test";
 
 import {
   compareToolchainRevisions,
+  managedToolUpdateOutcome,
   summarizeRemoteTools,
   summarizeTools,
+  type ManagedToolUpdateResult,
   type ToolStatus,
 } from "../src/toolchain.ts";
 
@@ -85,6 +87,58 @@ test("missing Homebrew keeps Settings usable without offering a formula action",
 test("Homebrew formulas map missing and outdated tools to install and update", () => {
   assert.equal(summarizeTools([tool("missing")], "homebrew").action, "install");
   assert.equal(summarizeTools([tool("outdated")], "homebrew").action, "update");
+});
+
+function managedUpdate(
+  overrides: Partial<ManagedToolUpdateResult>,
+): ManagedToolUpdateResult {
+  return {
+    status: "available",
+    source: "archive",
+    tools: [tool("available")],
+    manifestJson: "{}",
+    remoteRevision: "20260712.1",
+    ...overrides,
+  };
+}
+
+test("managed update outcomes preserve archive no-release and no-manifest results", () => {
+  assert.deepEqual(
+    managedToolUpdateOutcome(
+      managedUpdate({
+        status: "no_release",
+        source: null,
+        manifestJson: null,
+        remoteRevision: null,
+      }),
+      "managed",
+    ),
+    { kind: "no_release" },
+  );
+  assert.deepEqual(
+    managedToolUpdateOutcome(
+      managedUpdate({
+        status: "no_manifest",
+        source: null,
+        manifestJson: null,
+        remoteRevision: null,
+      }),
+      "managed",
+    ),
+    { kind: "no_manifest" },
+  );
+});
+
+test("legacy manifests without revisions remain remote and installable", () => {
+  const result = managedUpdate({ source: "legacy", remoteRevision: null });
+
+  assert.deepEqual(managedToolUpdateOutcome(result, "managed"), {
+    kind: "available",
+    mode: "remote",
+    manifestJson: "{}",
+    remoteRevision: null,
+  });
+  assert.equal(summarizeRemoteTools([tool("outdated")], null, null).action, "update");
 });
 
 test("remote archive revision produces update only when newer", () => {

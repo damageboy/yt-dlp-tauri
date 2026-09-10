@@ -10,6 +10,17 @@ test("tool checks use the backend managed provider command", () => {
   assert.match(source, /githubAccessMode: state\.githubAccessMode/u);
 });
 
+test("managed update checks preserve archive outcomes and pending manifests", () => {
+  const source = readFileSync("src/main.ts", "utf8");
+
+  assert.match(source, /outcome\.kind === "no_release"/u);
+  assert.match(source, /outcome\.kind === "no_manifest"/u);
+  assert.match(
+    source,
+    /state\.pendingToolManifestJson = summary\.action \? outcome\.manifestJson : null/u,
+  );
+});
+
 test("settings display the active toolchain revision", () => {
   const html = readFileSync("index.html", "utf8");
   const source = readFileSync("src/main.ts", "utf8");

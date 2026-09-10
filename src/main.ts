@@ -15,8 +15,10 @@ import {
   type PlatformPresentation,
 } from "./platform-toolchain";
 import {
+  managedToolUpdateOutcome,
   summarizeRemoteTools,
   summarizeTools,
+  type ManagedToolUpdateResult,
   type ToolAction,
   type ToolStatus,
   type ToolSummaryMode,
@@ -63,12 +65,6 @@ type LocalToolchainConfig = {
 };
 
 type LocalToolchainPaths = Omit<LocalToolchainConfig, "schemaVersion">;
-
-type ManagedToolUpdateResult = {
-  tools: ToolStatus[];
-  manifestJson: string | null;
-  remoteRevision: string | null;
-};
 
 type DownloadProgress = {
   percent?: number;
@@ -1046,12 +1042,30 @@ async function checkToolUpdates() {
     const result = await invoke<ManagedToolUpdateResult>("check_managed_tool_updates", {
       githubAccessMode: state.githubAccessMode,
     });
-    const summary = applyToolSummary(
-      result.tools,
-      result.remoteRevision ? "remote" : managedSummaryMode(state.platform),
-      { remoteRevision: result.remoteRevision },
+    const outcome = managedToolUpdateOutcome(
+      result,
+      managedSummaryMode(state.platform),
     );
-    state.pendingToolManifestJson = summary.action ? result.manifestJson : null;
+    if (outcome.kind === "no_release") {
+      elements.toolInstallStatus.textContent = t("updates.noRelease");
+      showNotice(t("updates.noRelease"), "warning");
+      return;
+    }
+    if (outcome.kind === "no_manifest") {
+      elements.toolInstallStatus.textContent = t("settings.toolUpdatesNoManifest");
+      showNotice(t("settings.toolUpdatesNoManifest"), "warning");
+      return;
+    }
+    if (outcome.kind === "invalid") {
+      elements.toolInstallStatus.textContent = t("settings.toolUpdatesInvalidManifest");
+      showNotice(t("settings.toolUpdatesInvalidManifest"), "warning");
+      return;
+    }
+
+    const summary = applyToolSummary(result.tools, outcome.mode, {
+      remoteRevision: outcome.remoteRevision,
+    });
+    state.pendingToolManifestJson = summary.action ? outcome.manifestJson : null;
     if (summary.ready) {
       elements.toolInstallStatus.textContent = t("settings.toolUpdatesCurrent");
       logEvent(t("event.toolUpdatesCurrent"));

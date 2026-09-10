@@ -18,6 +18,25 @@ export type RemoteToolManifest = {
   source: "archive" | "legacy" | null;
 };
 
+export type ManagedToolUpdateResult = {
+  status: "available" | "no_release" | "no_manifest";
+  source: "archive" | "legacy" | "homebrew" | null;
+  tools: ToolStatus[];
+  manifestJson: string | null;
+  remoteRevision: string | null;
+};
+
+export type ManagedToolUpdateOutcome =
+  | { kind: "no_release" }
+  | { kind: "no_manifest" }
+  | { kind: "invalid" }
+  | {
+      kind: "available";
+      mode: Extract<ToolSummaryMode, "managed" | "homebrew" | "remote">;
+      manifestJson: string | null;
+      remoteRevision: string | null;
+    };
+
 export type ToolSummary = {
   ready: boolean;
   action: ToolAction | null;
@@ -50,6 +69,48 @@ export type ToolSummary = {
     | "event.homebrewMissing";
   tone: "success" | "warning";
 };
+
+export function managedToolUpdateOutcome(
+  result: ManagedToolUpdateResult,
+  managedMode: Extract<ToolSummaryMode, "managed" | "homebrew">,
+): ManagedToolUpdateOutcome {
+  if (result.status === "no_release" || result.status === "no_manifest") {
+    return { kind: result.status };
+  }
+
+  if (result.source === "archive") {
+    return result.manifestJson && result.remoteRevision
+      ? {
+          kind: "available",
+          mode: "remote",
+          manifestJson: result.manifestJson,
+          remoteRevision: result.remoteRevision,
+        }
+      : { kind: "invalid" };
+  }
+
+  if (result.source === "legacy") {
+    return result.manifestJson
+      ? {
+          kind: "available",
+          mode: "remote",
+          manifestJson: result.manifestJson,
+          remoteRevision: result.remoteRevision,
+        }
+      : { kind: "invalid" };
+  }
+
+  if (result.source === "homebrew") {
+    return {
+      kind: "available",
+      mode: managedMode,
+      manifestJson: result.manifestJson,
+      remoteRevision: result.remoteRevision,
+    };
+  }
+
+  return { kind: "invalid" };
+}
 
 export function summarizeTools(tools: ToolStatus[], mode: ToolSummaryMode): ToolSummary {
   const hasMissing = tools.some((tool) => tool.availability === "missing");

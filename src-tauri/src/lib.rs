@@ -124,9 +124,24 @@ struct LatestToolManifestResult {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ManagedToolUpdateResult {
+    status: String,
+    source: Option<String>,
     tools: Vec<ToolStatus>,
     manifest_json: Option<String>,
     remote_revision: Option<String>,
+}
+
+fn managed_archive_update_result(
+    tools: Vec<ToolStatus>,
+    result: LatestToolManifestResult,
+) -> ManagedToolUpdateResult {
+    ManagedToolUpdateResult {
+        status: result.status,
+        source: result.source,
+        tools,
+        manifest_json: result.manifest_json,
+        remote_revision: result.revision,
+    }
 }
 
 #[derive(Clone, Default)]
@@ -377,13 +392,11 @@ async fn check_managed_tool_updates(
                         probe_manifest_tools(&app, &platform, &target)?
                     }
                 };
-                Ok(ManagedToolUpdateResult {
-                    tools,
-                    manifest_json: result.manifest_json,
-                    remote_revision: result.revision,
-                })
+                Ok(managed_archive_update_result(tools, result))
             }
             ManagedProviderDefinition::Homebrew { .. } => Ok(ManagedToolUpdateResult {
+                status: "available".to_string(),
+                source: Some("homebrew".to_string()),
                 tools: check_homebrew_updates(&platform)?,
                 manifest_json: None,
                 remote_revision: None,
@@ -2379,6 +2392,36 @@ mod tests {
                 "{command} must reject Homebrew before checking local source state"
             );
         }
+    }
+
+    #[test]
+    fn managed_archive_update_result_preserves_status_and_source() {
+        let result = managed_archive_update_result(
+            Vec::new(),
+            LatestToolManifestResult {
+                status: "no_manifest".to_string(),
+                manifest_json: None,
+                revision: None,
+                source: None,
+            },
+        );
+        let no_manifest = serde_json::to_value(result).unwrap();
+        assert_eq!(no_manifest["status"], "no_manifest");
+        assert!(no_manifest["source"].is_null());
+
+        let result = managed_archive_update_result(
+            Vec::new(),
+            LatestToolManifestResult {
+                status: "available".to_string(),
+                manifest_json: Some("{}".to_string()),
+                revision: None,
+                source: Some("legacy".to_string()),
+            },
+        );
+        let legacy = serde_json::to_value(result).unwrap();
+        assert_eq!(legacy["status"], "available");
+        assert_eq!(legacy["source"], "legacy");
+        assert!(legacy["remoteRevision"].is_null());
     }
 
     #[test]
