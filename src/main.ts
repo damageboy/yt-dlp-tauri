@@ -7,9 +7,15 @@ import packageInfo from "../package.json";
 import { releaseNotesForVersion, shouldShowReleaseNotes, stripTerminalSentencePunctuation } from "./release-notes";
 import { thumbnailUrlCandidates } from "./thumbnail";
 import {
+  executablePickerFilters,
+  managedActionConfirmationKey,
+  managedSummaryMode,
+  showsRevision,
+  type PlatformPresentation,
+} from "./platform-toolchain";
+import {
   summarizeRemoteTools,
   summarizeTools,
-  type RemoteToolManifest,
   type ToolAction,
   type ToolStatus,
   type ToolSummaryMode,
@@ -40,6 +46,7 @@ type AppState = {
   tools_root: string;
   toolchain_revision?: string | null;
   toolchain_source: ToolchainSource;
+  platform: PlatformPresentation;
   local_toolchain: LocalToolchainConfig;
   local_toolchain_paths: LocalToolchainPaths;
   cookies_file?: string | null;
@@ -55,6 +62,12 @@ type LocalToolchainConfig = {
 };
 
 type LocalToolchainPaths = Omit<LocalToolchainConfig, "schemaVersion">;
+
+type ManagedToolUpdateResult = {
+  tools: ToolStatus[];
+  manifestJson: string | null;
+  remoteRevision: string | null;
+};
 
 type DownloadProgress = {
   percent?: number;
@@ -76,6 +89,15 @@ const PROJECT_RELEASES_URL = `${PROJECT_REPOSITORY_URL}/releases`;
 const LATEST_RELEASE_API_URL = "https://api.github.com/repos/Chlience/yt-dlp-tauri/releases/latest";
 const GITHUB_ACCESS_STORAGE_KEY = "yt-dlp-tauri-github-access-mode";
 const RELEASE_NOTES_SEEN_VERSION_STORAGE_KEY = "yt-dlp-tauri-release-notes-seen-version";
+const HOMEBREW_URL = "https://brew.sh/";
+const WINDOWS_PLATFORM: PlatformPresentation = {
+  target: "win-x64",
+  managedProvider: "archive-manifest",
+  sourceLabels: { managed: "Managed", local: "Local" },
+  defaultSource: "managed",
+  executableExtension: "exe",
+  capabilities: { install: true, update: true, reinstall: true },
+};
 const MAX_TOASTS = 4;
 const TOAST_AUTO_DISMISS_MS: Record<NoticeTone, number> = {
   success: 6000,
@@ -117,6 +139,7 @@ const translations = {
     "action.openRelease": "Open release",
     "action.releaseNotes": "Release notes",
     "action.projectHome": "Project home",
+    "action.openHomebrew": "Open Homebrew website",
     "github.accessLabel": "GitHub access mode",
     "github.direct": "Direct",
     "github.proxy": "gh-proxy",
@@ -156,6 +179,7 @@ const translations = {
     "notice.localToolchainReady": "Local toolchain ready.",
     "notice.localToolsMissing": "Some local tools are missing.",
     "notice.localToolsDamaged": "Local toolchain verification failed.",
+    "notice.homebrewMissing": "Homebrew is not installed. Install it from brew.sh, then verify tools again.",
     "notice.toolCheckFailed": "Tool check failed.",
     "notice.toolsInstalled": "Toolchain installed.",
     "notice.toolInstallNeedsAttention": "Tool install needs attention.",
@@ -186,9 +210,16 @@ const translations = {
     "settings.toolchain": "Toolchain",
     "settings.toolchainHint": "Per-target tools are verified with SHA-256.",
     "settings.localToolchainHint": "Local executables are verified by behavior and remain user-managed.",
+    "settings.homebrewToolchainHint": "Required tools are managed with Homebrew.",
+    "settings.homebrewGuidance": "Homebrew manages the yt-dlp, ffmpeg, and deno formulas.",
+    "settings.homebrewMissing": "Homebrew is not installed. Install it from brew.sh, then verify tools again.",
+    "settings.homebrewPrefix": "Homebrew prefix: {path}",
+    "settings.homebrewPrefixPending": "Homebrew prefix not found",
     "settings.toolSource": "Tool source",
     "settings.managedTools": "Managed",
     "settings.localTools": "Local",
+    "settings.homebrewTools": "Homebrew",
+    "settings.customTools": "Custom",
     "settings.activeRevision": "Active revision",
     "settings.noActiveRevision": "None",
     "settings.resolvingTools": "Resolving tools path...",
@@ -217,6 +248,9 @@ const translations = {
     "settings.toolUpdatesInvalidManifest": "The released tool manifest could not be read.",
     "settings.toolUpdatesFailed": "Tool update check failed: {message}",
     "settings.reinstallConfirm": "Download and verify a fresh toolchain at {path}? The current revision stays active until the replacement passes every check",
+    "settings.homebrewInstallConfirm": "Install Homebrew formulas yt-dlp, ffmpeg, and deno?",
+    "settings.homebrewUpdateConfirm": "Update Homebrew formulas yt-dlp, ffmpeg, and deno?",
+    "settings.homebrewReinstallConfirm": "Reinstall Homebrew formulas yt-dlp, ffmpeg, and deno?",
     "settings.toolCheckFailed": "Tool check failed.",
     "settings.toolsInstalled": "Toolchain installed.",
     "settings.toolsInstallPartial": "Install finished, but some tools still need attention.",
@@ -234,6 +268,7 @@ const translations = {
     "event.localToolsAvailable": "Local toolchain passed verification.",
     "event.localToolsMissing": "Local toolchain has missing paths.",
     "event.localToolsDamaged": "Local toolchain failed verification.",
+    "event.homebrewMissing": "Homebrew was not found.",
     "event.localToolsSelected": "Local tool source selected.",
     "event.managedToolsSelected": "Managed tool source selected.",
     "event.toolUpdatesAvailable": "Released toolchain update found.",
@@ -284,6 +319,7 @@ const translations = {
     "action.openRelease": "打开发布页",
     "action.releaseNotes": "更新说明",
     "action.projectHome": "项目主页",
+    "action.openHomebrew": "打开 Homebrew 网站",
     "github.accessLabel": "GitHub 访问方式",
     "github.direct": "直连",
     "github.proxy": "gh-proxy",
@@ -323,6 +359,7 @@ const translations = {
     "notice.localToolchainReady": "本地工具链已就绪。",
     "notice.localToolsMissing": "缺少部分本地工具。",
     "notice.localToolsDamaged": "本地工具链验证失败。",
+    "notice.homebrewMissing": "未安装 Homebrew。请从 brew.sh 安装，然后重新验证工具。",
     "notice.toolCheckFailed": "工具检查失败。",
     "notice.toolsInstalled": "工具链已安装。",
     "notice.toolInstallNeedsAttention": "工具安装需要处理。",
@@ -353,9 +390,16 @@ const translations = {
     "settings.toolchain": "工具链",
     "settings.toolchainHint": "按目标平台安装，并用 SHA-256 校验。",
     "settings.localToolchainHint": "本地程序按实际行为验证，版本与文件由用户管理。",
+    "settings.homebrewToolchainHint": "所需工具由 Homebrew 管理。",
+    "settings.homebrewGuidance": "Homebrew 管理 yt-dlp、ffmpeg 和 deno formula。",
+    "settings.homebrewMissing": "未安装 Homebrew。请从 brew.sh 安装，然后重新验证工具。",
+    "settings.homebrewPrefix": "Homebrew 前缀：{path}",
+    "settings.homebrewPrefixPending": "未找到 Homebrew 前缀",
     "settings.toolSource": "工具来源",
     "settings.managedTools": "应用管理",
     "settings.localTools": "本地工具",
+    "settings.homebrewTools": "Homebrew",
+    "settings.customTools": "自定义",
     "settings.activeRevision": "当前 revision",
     "settings.noActiveRevision": "未激活",
     "settings.resolvingTools": "正在解析工具路径...",
@@ -384,6 +428,9 @@ const translations = {
     "settings.toolUpdatesInvalidManifest": "发布的工具清单无法读取。",
     "settings.toolUpdatesFailed": "工具更新检查失败：{message}",
     "settings.reinstallConfirm": "重新下载并校验 {path} 下的工具链？新版本通过全部检查前会继续使用当前版本",
+    "settings.homebrewInstallConfirm": "安装 Homebrew formula yt-dlp、ffmpeg 和 deno？",
+    "settings.homebrewUpdateConfirm": "更新 Homebrew formula yt-dlp、ffmpeg 和 deno？",
+    "settings.homebrewReinstallConfirm": "重新安装 Homebrew formula yt-dlp、ffmpeg 和 deno？",
     "settings.toolCheckFailed": "工具检查失败。",
     "settings.toolsInstalled": "工具链已安装。",
     "settings.toolsInstallPartial": "安装结束，但仍有工具需要处理。",
@@ -401,6 +448,7 @@ const translations = {
     "event.localToolsAvailable": "本地工具链已通过验证。",
     "event.localToolsMissing": "本地工具链存在缺失路径。",
     "event.localToolsDamaged": "本地工具链验证失败。",
+    "event.homebrewMissing": "未找到 Homebrew。",
     "event.localToolsSelected": "已选择本地工具来源。",
     "event.managedToolsSelected": "已选择应用管理工具来源。",
     "event.toolUpdatesAvailable": "发现已发布的工具链更新。",
@@ -436,6 +484,9 @@ const state = {
   toolAction: null as ToolAction | null,
   toolchainRevision: null as string | null,
   toolchainSource: "managed" as ToolchainSource,
+  toolsRoot: "",
+  platform: WINDOWS_PLATFORM,
+  managedProviderMissing: false,
   localToolchain: {
     schemaVersion: 1,
     ytDlpPath: null,
@@ -480,6 +531,9 @@ const elements = {
   toolSourceManaged: must<HTMLButtonElement>("#tool-source-managed"),
   toolSourceLocal: must<HTMLButtonElement>("#tool-source-local"),
   managedToolchainDetails: must<HTMLElement>("#managed-toolchain-details"),
+  managedProviderGuidance: must<HTMLElement>("#managed-provider-guidance"),
+  homebrewHelp: must<HTMLButtonElement>("#homebrew-help"),
+  toolchainRevisionRow: must<HTMLElement>("#toolchain-revision-row"),
   localToolchainPaths: must<HTMLElement>("#local-toolchain-paths"),
   localYtDlpPath: must<HTMLElement>("#local-yt-dlp-path"),
   localFfmpegPath: must<HTMLElement>("#local-ffmpeg-path"),
@@ -727,6 +781,7 @@ function bindEvents() {
   elements.releaseLink.addEventListener("click", () => void openLatestRelease());
   elements.releaseNotesButton.addEventListener("click", () => showReleaseNotes());
   elements.githubLink.addEventListener("click", () => void openProjectRepository());
+  elements.homebrewHelp.addEventListener("click", () => void openHomebrewWebsite());
   elements.githubDirect.addEventListener("click", () => setGithubAccessMode("direct"));
   elements.githubProxy.addEventListener("click", () => setGithubAccessMode("gh-proxy"));
   elements.thumbnail.addEventListener("load", () => showLoadedThumbnail());
@@ -789,9 +844,10 @@ async function loadAppState() {
 function applyAppState(appState: AppState) {
   elements.folderText.textContent = appState.download_directory;
   elements.folderInput.value = appState.download_directory;
-  elements.toolRoot.textContent = appState.tools_root || t("settings.toolsPathPending");
   state.toolchainRevision = appState.toolchain_revision ?? null;
   state.toolchainSource = appState.toolchain_source;
+  state.toolsRoot = appState.tools_root;
+  state.platform = appState.platform;
   state.localToolchain = appState.local_toolchain;
   state.localToolchainPaths = appState.local_toolchain_paths;
   renderToolchainRevision();
@@ -813,6 +869,7 @@ async function setToolchainSource(source: ToolchainSource) {
     state.toolsReady = false;
     state.toolAction = null;
     state.pendingToolManifestJson = null;
+    state.managedProviderMissing = false;
     elements.toolList.replaceChildren();
     applyAppState(appState);
     invalidateParsedVideo(t("preview.toolsChanged"));
@@ -837,15 +894,11 @@ async function chooseLocalTool(tool: "yt-dlp" | "ffmpeg" | "deno") {
     return;
   }
 
-  const directory = tool === "ffmpeg";
+  const filters = executablePickerFilters(state.platform);
   const selected = await open({
     multiple: false,
-    directory,
-    ...(directory
-      ? {}
-      : {
-          filters: [{ name: "Executable", extensions: ["exe"] }],
-        }),
+    directory: tool === "ffmpeg",
+    ...(tool === "ffmpeg" || filters.length === 0 ? {} : { filters }),
   });
   if (typeof selected !== "string") {
     return;
@@ -921,7 +974,7 @@ async function verifyTools(options: { quietReady?: boolean } = {}) {
     const tools = await invoke<ToolStatus[]>("check_tools");
     applyToolSummary(
       tools,
-      state.toolchainSource === "local" ? "local" : "managed",
+      state.toolchainSource === "local" ? "local" : managedSummaryMode(state.platform),
       options,
     );
   } catch (error) {
@@ -946,6 +999,11 @@ async function installTools() {
     return;
   }
 
+  const confirmationKey = managedActionConfirmationKey(state.platform, state.toolAction);
+  if (confirmationKey && !window.confirm(t(confirmationKey))) {
+    return;
+  }
+
   setBusy(true, undefined, "tools");
   elements.toolInstallStatus.textContent = t(toolActionStatusKey(state.toolAction));
   try {
@@ -957,7 +1015,7 @@ async function installTools() {
       : await invoke<ToolStatus[]>("install_tools", { githubAccessMode: state.githubAccessMode });
     state.pendingToolManifestJson = null;
     await loadAppState();
-    applyToolSummary(tools, "managed");
+    applyToolSummary(tools, managedSummaryMode(state.platform));
     elements.toolInstallStatus.textContent = state.toolsReady ? t("settings.toolsInstalled") : t("settings.toolsInstallPartial");
     showNotice(state.toolsReady ? t("notice.toolsInstalled") : t("notice.toolInstallNeedsAttention"), state.toolsReady ? "success" : "warning");
     logEvent(state.toolsReady ? t("event.toolsInstalled") : t("event.toolsPartial"));
@@ -984,39 +1042,16 @@ async function checkToolUpdates() {
   }
   elements.toolInstallStatus.textContent = t("settings.toolUpdatesChecking");
   try {
-    const manifestResult = await invoke<RemoteToolManifest>("fetch_latest_tool_manifest", {
+    const result = await invoke<ManagedToolUpdateResult>("check_managed_tool_updates", {
       githubAccessMode: state.githubAccessMode,
     });
-
-    if (manifestResult.status === "no_release") {
-      elements.toolInstallStatus.textContent = t("updates.noRelease");
-      showNotice(t("updates.noRelease"), "warning");
-      return;
-    }
-
-    if (manifestResult.status === "no_manifest") {
-      elements.toolInstallStatus.textContent = t("settings.toolUpdatesNoManifest");
-      showNotice(t("settings.toolUpdatesNoManifest"), "warning");
-      return;
-    }
-
-    if (
-      !manifestResult.manifestJson ||
-      !manifestResult.source ||
-      (manifestResult.source === "archive" && !manifestResult.revision)
-    ) {
-      elements.toolInstallStatus.textContent = t("settings.toolUpdatesInvalidManifest");
-      showNotice(t("settings.toolUpdatesInvalidManifest"), "warning");
-      return;
-    }
-
-    const manifestJson = manifestResult.manifestJson;
-    const tools = await invoke<ToolStatus[]>("check_tools_with_manifest", { manifestJson });
-    const summary = applyToolSummary(tools, "remote", { remoteRevision: manifestResult.revision });
-    if (summary.action) {
-      state.pendingToolManifestJson = manifestJson;
-      updateToolActionButton();
-    } else {
+    const summary = applyToolSummary(
+      result.tools,
+      result.remoteRevision ? "remote" : managedSummaryMode(state.platform),
+      { remoteRevision: result.remoteRevision },
+    );
+    state.pendingToolManifestJson = summary.action ? result.manifestJson : null;
+    if (summary.ready) {
       elements.toolInstallStatus.textContent = t("settings.toolUpdatesCurrent");
       logEvent(t("event.toolUpdatesCurrent"));
     }
@@ -1035,7 +1070,11 @@ async function reinstallTools() {
   }
 
   const path = elements.toolRoot.textContent || t("settings.toolsPathPending");
-  if (!window.confirm(t("settings.reinstallConfirm", { path }))) {
+  const confirmationKey = managedActionConfirmationKey(state.platform, "reinstall");
+  const confirmation = confirmationKey
+    ? t(confirmationKey)
+    : t("settings.reinstallConfirm", { path });
+  if (!window.confirm(confirmation)) {
     return;
   }
 
@@ -1047,7 +1086,7 @@ async function reinstallTools() {
       githubAccessMode: state.githubAccessMode,
     });
     await loadAppState();
-    applyToolSummary(tools, "managed");
+    applyToolSummary(tools, managedSummaryMode(state.platform));
     elements.toolInstallStatus.textContent = state.toolsReady ? t("settings.toolsInstalled") : t("settings.toolsInstallPartial");
     showNotice(state.toolsReady ? t("notice.toolsInstalled") : t("notice.toolInstallNeedsAttention"), state.toolsReady ? "success" : "warning");
     logEvent(state.toolsReady ? t("event.toolsInstalled") : t("event.toolsPartial"));
@@ -1157,6 +1196,14 @@ async function openDownloadFolder() {
 async function openProjectRepository() {
   try {
     await openUrl(PROJECT_REPOSITORY_URL);
+  } catch (error) {
+    showNotice(String(error), "error");
+  }
+}
+
+async function openHomebrewWebsite() {
+  try {
+    await openUrl(HOMEBREW_URL);
   } catch (error) {
     showNotice(String(error), "error");
   }
@@ -1428,18 +1475,47 @@ function renderToolchainRevision() {
 
 function renderToolchainSource() {
   const isLocal = state.toolchainSource === "local";
+  const isHomebrew = state.platform.managedProvider === "homebrew";
+  const managedLabel =
+    isHomebrew && state.language === "en"
+      ? state.platform.sourceLabels.managed
+      : t(isHomebrew ? "settings.homebrewTools" : "settings.managedTools");
+  const localLabel =
+    isHomebrew && state.language === "en"
+      ? state.platform.sourceLabels.local
+      : t(isHomebrew ? "settings.customTools" : "settings.localTools");
+
+  elements.toolSourceManaged.textContent = managedLabel;
+  elements.toolSourceLocal.textContent = localLabel;
   elements.toolSourceManaged.classList.toggle("is-active", !isLocal);
   elements.toolSourceLocal.classList.toggle("is-active", isLocal);
   elements.toolSourceManaged.setAttribute("aria-pressed", String(!isLocal));
   elements.toolSourceLocal.setAttribute("aria-pressed", String(isLocal));
   elements.managedToolchainDetails.hidden = isLocal;
   elements.localToolchainPaths.hidden = !isLocal;
+  elements.toolchainRevisionRow.hidden = !showsRevision(state.platform);
+  elements.toolRoot.textContent = isHomebrew
+    ? state.toolsRoot
+      ? t("settings.homebrewPrefix", { path: state.toolsRoot })
+      : t("settings.homebrewPrefixPending")
+    : state.toolsRoot || t("settings.toolsPathPending");
   elements.toolchainHint.textContent = t(
-    isLocal ? "settings.localToolchainHint" : "settings.toolchainHint",
+    isLocal
+      ? "settings.localToolchainHint"
+      : isHomebrew
+        ? "settings.homebrewToolchainHint"
+        : "settings.toolchainHint",
   );
+  elements.managedProviderGuidance.hidden = isLocal || !isHomebrew;
+  elements.managedProviderGuidance.textContent = t(
+    state.managedProviderMissing
+      ? "settings.homebrewMissing"
+      : "settings.homebrewGuidance",
+  );
+  elements.homebrewHelp.hidden = isLocal || !state.managedProviderMissing;
   elements.autoDetectLocalTools.title = t("settings.usePathHint");
-  elements.checkToolUpdates.hidden = isLocal;
-  elements.reinstallTools.hidden = isLocal;
+  elements.checkToolUpdates.hidden = isLocal || !state.platform.capabilities.update;
+  elements.reinstallTools.hidden = isLocal || !state.platform.capabilities.reinstall;
   updateToolActionButton();
 }
 
@@ -1466,8 +1542,11 @@ function applyToolSummary(
       : summarizeTools(tools, mode);
   state.toolsReady = summary.ready;
   state.toolAction = summary.action;
+  state.managedProviderMissing = tools.some(
+    (tool) => tool.availability === "provider_missing",
+  );
   renderTools(tools);
-  updateToolActionButton();
+  renderToolchainSource();
   elements.toolInstallStatus.textContent = t(summary.settingsKey);
   if (!(options.quietReady && summary.ready)) {
     showNotice(t(summary.noticeKey), summary.tone);
@@ -1536,7 +1615,9 @@ function setBusy(isBusy: boolean, progressText?: string, operation: "metadata" |
 
 function updateToolActionButton() {
   elements.installTools.hidden =
-    state.toolchainSource === "local" || state.toolAction === null;
+    state.toolchainSource === "local" ||
+    state.toolAction === null ||
+    (state.toolAction !== null && !supportsManagedAction(state.toolAction));
   if (!state.toolAction) {
     return;
   }
@@ -1548,6 +1629,10 @@ function updateToolActionButton() {
         ? "action.updateTools"
         : "action.installTools";
   elements.installTools.textContent = t(labelKey);
+}
+
+function supportsManagedAction(action: ToolAction): boolean {
+  return state.platform.capabilities[action];
 }
 
 function toolActionStatusKey(action: ToolAction | null): TranslationKey {
@@ -1581,9 +1666,16 @@ function updateButtons() {
   elements.chooseLocalDeno.disabled = state.busy || state.toolchainSource !== "local";
   elements.autoDetectLocalTools.disabled = state.busy || state.toolchainSource !== "local";
   elements.verifyTools.disabled = state.busy;
-  elements.checkToolUpdates.disabled = state.busy || state.toolchainSource !== "managed";
-  elements.installTools.disabled = state.busy || !state.toolAction;
-  elements.reinstallTools.disabled = state.busy || state.toolchainSource !== "managed";
+  elements.checkToolUpdates.disabled =
+    state.busy ||
+    state.toolchainSource !== "managed" ||
+    !state.platform.capabilities.update;
+  elements.installTools.disabled =
+    state.busy || !state.toolAction || !supportsManagedAction(state.toolAction);
+  elements.reinstallTools.disabled =
+    state.busy ||
+    state.toolchainSource !== "managed" ||
+    !state.platform.capabilities.reinstall;
   elements.browseFolder.disabled = state.busy;
   elements.saveFolder.disabled = state.busy;
   elements.resetFolder.disabled = state.busy;

@@ -2,14 +2,14 @@ export type ToolStatus = {
   name: string;
   relative_path: string;
   full_path: string;
-  availability: "available" | "missing" | "cannot_execute" | "outdated";
+  availability: "available" | "missing" | "cannot_execute" | "outdated" | "provider_missing";
   version?: string;
   expected_version?: string;
   error?: string;
 };
 
 export type ToolAction = "install" | "update" | "reinstall";
-export type ToolSummaryMode = "managed" | "local" | "remote";
+export type ToolSummaryMode = "managed" | "local" | "remote" | "homebrew";
 
 export type RemoteToolManifest = {
   status: "available" | "no_release" | "no_manifest";
@@ -28,7 +28,8 @@ export type ToolSummary = {
     | "settings.localToolsAvailable"
     | "settings.localToolsMissing"
     | "settings.localToolsDamaged"
-    | "settings.toolUpdatesAvailable";
+    | "settings.toolUpdatesAvailable"
+    | "settings.homebrewMissing";
   noticeKey:
     | "notice.toolchainReady"
     | "notice.toolsMissing"
@@ -36,7 +37,8 @@ export type ToolSummary = {
     | "notice.toolsOutdated"
     | "notice.localToolchainReady"
     | "notice.localToolsMissing"
-    | "notice.localToolsDamaged";
+    | "notice.localToolsDamaged"
+    | "notice.homebrewMissing";
   eventKey:
     | "event.toolsAvailable"
     | "event.toolsMissing"
@@ -44,14 +46,27 @@ export type ToolSummary = {
     | "event.toolUpdatesAvailable"
     | "event.localToolsAvailable"
     | "event.localToolsMissing"
-    | "event.localToolsDamaged";
+    | "event.localToolsDamaged"
+    | "event.homebrewMissing";
   tone: "success" | "warning";
 };
 
 export function summarizeTools(tools: ToolStatus[], mode: ToolSummaryMode): ToolSummary {
   const hasMissing = tools.some((tool) => tool.availability === "missing");
+  const hasOutdated = tools.some((tool) => tool.availability === "outdated");
   const hasAttention = tools.some((tool) => tool.availability === "outdated" || tool.availability === "cannot_execute");
   const ready = tools.length > 0 && tools.every((tool) => tool.availability === "available");
+
+  if (mode === "homebrew" && tools.some((tool) => tool.availability === "provider_missing")) {
+    return {
+      ready: false,
+      action: null,
+      settingsKey: "settings.homebrewMissing",
+      noticeKey: "notice.homebrewMissing",
+      eventKey: "event.homebrewMissing",
+      tone: "warning",
+    };
+  }
 
   if (ready) {
     if (mode === "local") {
@@ -105,7 +120,7 @@ export function summarizeTools(tools: ToolStatus[], mode: ToolSummaryMode): Tool
     };
   }
 
-  if (hasAttention && mode === "remote") {
+  if ((hasAttention && mode === "remote") || (hasOutdated && mode === "homebrew")) {
     return {
       ready: false,
       action: "update",

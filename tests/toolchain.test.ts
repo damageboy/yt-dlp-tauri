@@ -71,6 +71,22 @@ test("summarizeTools asks for update when release manifest verification finds ne
   });
 });
 
+test("missing Homebrew keeps Settings usable without offering a formula action", () => {
+  assert.deepEqual(summarizeTools([tool("provider_missing")], "homebrew"), {
+    ready: false,
+    action: null,
+    settingsKey: "settings.homebrewMissing",
+    noticeKey: "notice.homebrewMissing",
+    eventKey: "event.homebrewMissing",
+    tone: "warning",
+  });
+});
+
+test("Homebrew formulas map missing and outdated tools to install and update", () => {
+  assert.equal(summarizeTools([tool("missing")], "homebrew").action, "install");
+  assert.equal(summarizeTools([tool("outdated")], "homebrew").action, "update");
+});
+
 test("remote archive revision produces update only when newer", () => {
   assert.equal(compareToolchainRevisions("20260712.1", "20260711.2"), 1);
   assert.equal(compareToolchainRevisions("20260712.1", "20260712.1"), 0);

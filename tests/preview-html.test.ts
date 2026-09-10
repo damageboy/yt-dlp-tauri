@@ -37,6 +37,9 @@ test("toolchain settings expose managed and local sources with path controls", (
   assert.match(html, /id="choose-local-ffmpeg"/u);
   assert.match(html, /id="choose-local-deno"/u);
   assert.match(html, /id="auto-detect-local-tools"/u);
+  assert.match(html, /id="toolchain-revision-row"/u);
+  assert.match(html, /id="managed-provider-guidance"/u);
+  assert.match(html, /id="homebrew-help"/u);
 });
 
 test("status messages render in a toast region", () => {
