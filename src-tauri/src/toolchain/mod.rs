@@ -3,6 +3,7 @@ mod archive;
 mod channel;
 mod install;
 mod local;
+mod platform;
 mod probe;
 
 use serde::{Deserialize, Serialize};
@@ -29,6 +30,11 @@ pub use install::{
 pub use local::{
     parse_local_toolchain_config, probe_local_toolchain, resolve_local_toolchain,
     LocalToolchainConfig, LocalToolchainResolution, ToolchainSource,
+};
+pub use platform::{
+    bundled_platform_catalog, parse_platform_catalog, platform_definition_from, ExecutableNames,
+    HomebrewPackageDefinition, ManagedProviderDefinition, ManagedProviderKind, PlatformCatalog,
+    PlatformPresentation, PlatformToolchainDefinition, ProviderCapabilities, SourceLabels,
 };
 pub use probe::{probe_target, require_tools, verify_toolchain_combination};
 

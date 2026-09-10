@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "targets": [
+    {
+      "target": "win-x64",
+      "os": "windows",
+      "arch": "x86_64",
+      "provider": { "kind": "archive-manifest", "manifestTarget": "win-x64" },
+      "sourceLabels": { "managed": "Managed", "local": "Local" },
+      "defaultSource": "managed",
+      "executableNames": {
+        "ytDlp": "yt-dlp.exe",
+        "ffmpeg": "ffmpeg.exe",
+        "ffprobe": "ffprobe.exe",
+        "deno": "deno.exe"
+      },
+      "capabilities": { "install": true, "update": true, "reinstall": true }
+    },
+    {
+      "target": "macos-arm64",
+      "os": "macos",
+      "arch": "aarch64",
+      "provider": {
+        "kind": "homebrew",
+        "packages": [
+          { "formula": "yt-dlp", "executables": ["yt-dlp"] },
+          { "formula": "ffmpeg", "executables": ["ffmpeg", "ffprobe"] },
+          { "formula": "deno", "executables": ["deno"] }
+        ]
+      },
+      "sourceLabels": { "managed": "Homebrew", "local": "Custom" },
+      "defaultSource": "managed",
+      "executableNames": {
+        "ytDlp": "yt-dlp",
+        "ffmpeg": "ffmpeg",
+        "ffprobe": "ffprobe",
+        "deno": "deno"
+      },
+      "capabilities": { "install": true, "update": true, "reinstall": true }
+    },
+    {
+      "target": "macos-x64",
+      "os": "macos",
+      "arch": "x86_64",
+      "provider": {
+        "kind": "homebrew",
+        "packages": [
+          { "formula": "yt-dlp", "executables": ["yt-dlp"] },
+          { "formula": "ffmpeg", "executables": ["ffmpeg", "ffprobe"] },
+          { "formula": "deno", "executables": ["deno"] }
+        ]
+      },
+      "sourceLabels": { "managed": "Homebrew", "local": "Custom" },
+      "defaultSource": "managed",
+      "executableNames": {
+        "ytDlp": "yt-dlp",
+        "ffmpeg": "ffmpeg",
+        "ffprobe": "ffprobe",
+        "deno": "deno"
+      },
+      "capabilities": { "install": true, "update": true, "reinstall": true }
+    }
+  ]
+}
