@@ -1,6 +1,6 @@
-# Optional aria2c downloads
+# Required aria2c tool with optional download usage
 
-Settings offers an off-by-default aria2c downloader, executable selection/automatic discovery, status refresh, and integer parallelism from 1 to 16. aria2c is user-managed; macOS installation is `brew install aria2`. The application never installs or upgrades it with required tools.
+Settings offers an off-by-default aria2c downloader, executable selection/automatic discovery, status refresh, and integer parallelism from 1 to 16. aria2c is always required. Homebrew manages the `aria2` formula through the same install, version verification, update and reinstall actions as other required tools. Custom setups and current Windows archives require a configured or PATH executable. The usage switch never changes installation requirements.
 
 ## State and validation
 
@@ -29,11 +29,11 @@ The frontend keeps a draft. Selecting a file, Use PATH and Refresh inspect witho
 
 Windows selects `aria2c.exe`; Unix selects `aria2c`. Automatic discovery skips non-executable files. Keep symlink invocation names intact because yt-dlp identifies the external downloader by basename. The version probe must succeed and identify aria2. Both version probing and Homebrew prefix queries have ten-second deadlines; timeout terminates and reaps the probe.
 
-Startup and general AppState retrieval do not probe aria2c. Explicit Settings inspection, enabled Save and enabled download do. Disabled saves and downloads skip inspection entirely.
+AppState retrieval does not probe aria2c. Startup tool verification, explicit Settings inspection, enabled Save, metadata preflight and every download verify aria2c, regardless of the usage switch. Disabled saves remain possible to repair settings; saving refreshes tool readiness, which stays incomplete until the executable is available.
 
 ## Download lifecycle
 
-The backend snapshots saved configuration when a download starts. It validates enabled aria2c before spawning yt-dlp, adding four discrete arguments before the URL:
+The backend snapshots saved configuration when a download starts. It requires a working aria2c before spawning yt-dlp. Only enabled usage adds four discrete arguments before the URL:
 
 ```text
 --downloader
@@ -44,7 +44,7 @@ aria2c:-j N -x N -s N
 
 Arguments never pass through a shell. No raw argument field is provided. The same N sets concurrent items (`-j`), connections per server per item (`-x`) and splits (`-s`); this is not a total connection cap or an application-level video queue. yt-dlp can print its defaults before the overriding arguments; the generated user overrides still apply.
 
-Metadata extraction never reads aria2c settings. Disabled downloads retain their previous arguments. Protocol eligibility remains with yt-dlp, so enabling aria2c does not prove every selected format uses it. Existing indeterminate progress remains available when numeric updates are absent.
+Metadata extraction verifies required aria2c availability without adding downloader arguments. Disabled downloads retain their previous arguments. Protocol eligibility remains with yt-dlp, so enabling aria2c does not prove every selected format uses it. Existing indeterminate progress remains available when numeric updates are absent.
 
 Unix downloads own a process group. Cancellation signals TERM, waits up to two seconds, then uses KILL if members remain. Windows retains `taskkill /T /F`. Cancellation and spawn registration share a mutex, as do cancellation and the final completion decision. The group stays registered during cancellation cleanup.
 
@@ -76,3 +76,9 @@ Native acceptance uses an isolated app state directory and a controlled HTTP ran
 - Windows-native discovery and process-tree cancellation remain an outstanding acceptance gate; no Windows run was available. macOS results do not establish Windows runtime behavior.
 
 All native UI tests used a disposable application state directory and local media; existing user settings were preserved.
+
+### Required-tool correction (2026-09-11)
+
+The required-tool rule supersedes the original optional-installation design. Homebrew missing-formula installation and update mapping have regression tests. The native Settings check shows aria2c in the required tool list with usage off. Missing configured executables block readiness regardless of usage; repairing and saving settings refreshes readiness. Windows archive delivery is a separate pending distribution decision; this change requires a configured executable there without claiming the existing archives contain it.
+
+Correction verification: 208 frontend tests and 109 Rust tests (106 library, 2 binary, 1 integration) pass; build, formatting and Clippy with warnings denied pass. Native Homebrew Settings verifies all five executables with usage off. An unavailable configured aria2c blocks readiness, and Use PATH + Save restores readiness without enabling usage. No package installation is suggested for a configuration-only failure. Independent review passed after that remediation fix.

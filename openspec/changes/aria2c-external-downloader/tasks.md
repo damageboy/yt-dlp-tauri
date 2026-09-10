@@ -1,5 +1,7 @@
 # aria2c External Downloader Implementation Plan
 
+> Installation and disabled-operation requirements are superseded by `aria2c-required-tool` following the user correction on 2026-09-11.
+
 > **For agentic workers:** Use `superpowers:executing-plans` to implement this plan task by task. Steps use checkbox syntax for tracking. Use subagents only if separately authorized.
 
 **Goal:** Add optional aria2c downloads with executable discovery, persistent enablement, and configurable parallelism.

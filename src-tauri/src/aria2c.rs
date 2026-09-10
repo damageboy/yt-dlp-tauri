@@ -81,6 +81,32 @@ pub struct Aria2cStatus {
 }
 
 impl Aria2cStatus {
+    pub fn tool_status(&self) -> crate::toolchain::ToolStatus {
+        crate::toolchain::ToolStatus {
+            name: "aria2c".into(),
+            relative_path: "aria2c".into(),
+            full_path: self
+                .executable_path
+                .as_ref()
+                .map(|path| path.display().to_string())
+                .unwrap_or_default(),
+            availability: if self.available {
+                "available"
+            } else if matches!(
+                self.error_code.as_deref(),
+                Some("not-found" | "invalid-path")
+            ) {
+                "missing"
+            } else {
+                "cannot_execute"
+            }
+            .into(),
+            version: self.version.clone(),
+            expected_version: None,
+            error: self.error.clone(),
+        }
+    }
+
     fn available(source: Aria2cSource, path: PathBuf, version: String) -> Self {
         Self {
             source: Some(source),
@@ -90,6 +116,16 @@ impl Aria2cStatus {
             ..Default::default()
         }
     }
+}
+
+pub fn require_aria2c(config: &Aria2cConfig) -> Result<Aria2cStatus, String> {
+    let status = inspect_aria2c(config)?;
+    if !status.available {
+        return Err(status
+            .error
+            .unwrap_or_else(|| "aria2c is required. Install or configure it in Settings.".into()));
+    }
+    Ok(status)
 }
 
 pub fn aria2c_downloader_args(
@@ -102,7 +138,7 @@ pub fn aria2c_downloader_args(
     }
     if !status.available {
         return Err(status.error.clone().unwrap_or_else(|| {
-            "aria2c is enabled but unavailable. Check Settings or disable aria2c.".into()
+            "aria2c is unavailable. Install or configure it in Settings.".into()
         }));
     }
     let path = status
@@ -155,7 +191,7 @@ fn resolve_with(
         } else {
             Err(failure(
                 "invalid-path",
-                "Configured aria2c is missing. Choose another executable or disable aria2c.",
+                "Configured aria2c is missing. Install aria2 or choose another executable.",
                 Some(Aria2cSource::Configured),
                 Some(path.clone()),
             ))
@@ -559,6 +595,26 @@ mod tests {
             .save_with(Aria2cConfig::default(), |_| panic!("Disabled recovery"))
             .unwrap();
         assert!(recovery.settings().unwrap().load_error.is_none());
+    }
+
+    #[test]
+    fn disabled_usage_still_requires_an_installed_executable() {
+        let root = TestDirectory::new();
+        let missing = Aria2cConfig {
+            executable_path: Some(root.0.join("missing/aria2c")),
+            enabled: false,
+            ..Default::default()
+        };
+        assert!(require_aria2c(&missing).is_err());
+        let available = Aria2cConfig {
+            executable_path: Some(root.fixture("")),
+            ..missing
+        };
+        let status = require_aria2c(&available).unwrap();
+        assert!(aria2c_downloader_args(&available, &status)
+            .unwrap()
+            .is_empty());
+        assert_eq!(status.tool_status().availability, "available");
     }
 
     #[test]

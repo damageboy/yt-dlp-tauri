@@ -54,7 +54,7 @@ The project is desktop-first and local-first. It is not a hosted downloader serv
 | Backend | Rust |
 | Frontend | Vanilla TypeScript, Vite |
 | UI | Fixed-size product-style desktop interface |
-| Toolchain | Project-managed Windows x64 archives, macOS Homebrew formulas, or trusted custom `yt-dlp`, `ffmpeg`, `ffprobe`, and `deno` executables |
+| Toolchain | Project-managed Windows x64 archives, macOS Homebrew formulas, or trusted custom `yt-dlp`, `ffmpeg`, `ffprobe`, `deno`, and `aria2c` executables |
 | Bundles | Windows x64 NSIS; local macOS `.app` and `.dmg` |
 
 ## Quick Start
@@ -73,7 +73,7 @@ The app has runtime definitions for Windows x64, macOS Apple Silicon, and macOS 
 If Homebrew is absent, install it from `https://brew.sh/` under your own control. The app does not install Homebrew or run its remote bootstrap script. Then install the formulas:
 
 ```bash
-brew install yt-dlp ffmpeg deno
+brew install yt-dlp ffmpeg deno aria2
 ```
 
 #### 2. Install dependencies and run or build
@@ -158,21 +158,21 @@ Current platform scope:
 
 On Windows, Settings labels the tool sources `Managed` and `Local`. Managed mode uses the verified project-hosted Windows archive revision. Local mode searches the inherited `PATH` for `yt-dlp.exe`, `deno.exe`, and one directory containing both `ffmpeg.exe` and `ffprobe.exe`; its path controls accept absolute executable or directory paths.
 
-On macOS, the same sources are labeled `Homebrew` and `Custom`. Homebrew mode can install, update, or reinstall the validated `yt-dlp`, `ffmpeg`, and `deno` formulas only when Homebrew already exists. If Brew is missing, install it yourself from `https://brew.sh/`; the app never installs Homebrew silently.
+On macOS, the same sources are labeled `Homebrew` and `Custom`. Homebrew mode can install, update, or reinstall the validated `yt-dlp`, `ffmpeg`, `deno`, and `aria2` formulas only when Homebrew already exists. If Brew is missing, install it yourself from `https://brew.sh/`; the app never installs Homebrew silently.
 
 Custom mode accepts absolute paths to extensionless `yt-dlp` and `deno` executables plus an absolute directory containing extensionless `ffmpeg` and `ffprobe`. Auto-detection searches the inherited `PATH` plus the Finder-safe standard Brew prefixes `/opt/homebrew/bin` and `/usr/local/bin`. `Use PATH` clears explicit overrides and repeats automatic discovery.
 
 Custom/local tools are checked by running their version commands and the same deterministic media compatibility fixture used for managed tools. The app does not pin hashes, install updates, or replace custom/local executables. These programs run with the user's permissions; the selected yt-dlp executable receives video URLs and the selected Cookie file, so configure only trusted binaries.
 
-## Optional aria2c downloader
+## Required aria2c tool, optional downloader
 
-Install aria2c yourself (`brew install aria2` on macOS), then open **Settings → aria2c external downloader**. Choose an executable or **Use PATH**, turn on **Use aria2c**, choose **Parallelism** from 1 to 16, and **Save**. The default is off, with parallelism 16.
+aria2c is required even when its use for downloads is off. On macOS, **Settings → Toolchain** installs, verifies, updates and reinstalls the Homebrew `aria2` formula alongside the other required tools. Custom setups and current Windows archives require a working `aria2c`/`aria2c.exe` on PATH or an explicitly selected executable. Open **Settings → aria2c downloader**. Choose an executable or **Use PATH**, turn on **Use aria2c**, choose **Parallelism** from 1 to 16, and **Save**. The default is off, with parallelism 16.
 
-The executable is discovered from the selected absolute path, PATH, or macOS Homebrew locations (including a custom Homebrew prefix). **Refresh status** shows its version or an actionable error. An explicitly selected invalid executable does not silently fall back to another installation. Disabled settings can always be saved after a previously selected executable disappears.
+The executable is discovered from the selected absolute path, PATH, or macOS Homebrew locations (including a custom Homebrew prefix). **Refresh status** shows its version or an actionable error. An explicitly selected invalid executable does not silently fall back to another installation. Disabled settings can still be saved after a selected executable disappears, but tool setup remains incomplete until aria2c is restored or reconfigured.
 
 One parallelism value N generates `--downloader <absolute path> --downloader-args "aria2c:-j N -x N -s N"`. These options set concurrent items, connections per server per item, and splits. N is not a total connection cap or the number of simultaneous videos. yt-dlp chooses eligible protocols; some formats use its native downloader. The progress bar remains indeterminate when no numeric progress is available.
 
-Settings persist in `state/aria2c.json`. aria2c remains independent from the required yt-dlp/FFmpeg/Deno toolchain: its installation, update and removal are user-managed. See [aria2c configuration and verification](docs/aria2c.md).
+Settings persist in `state/aria2c.json`. The usage toggle controls only yt-dlp downloader arguments; it neither uninstalls aria2c nor removes it from tool verification. Saving settings refreshes tool readiness. See [aria2c configuration and verification](docs/aria2c.md).
 
 ## Toolchain Maintenance
 

@@ -849,7 +849,8 @@ progress::-webkit-progress-value {
   background: var(--success);
 }
 
-.tool-row.is-cannot_execute .tool-dot {
+.tool-row.is-cannot_execute .tool-dot,
+.tool-row.is-configuration_required .tool-dot {
   background: var(--warning);
 }
 

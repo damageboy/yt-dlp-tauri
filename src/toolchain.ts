@@ -2,7 +2,7 @@ export type ToolStatus = {
   name: string;
   relative_path: string;
   full_path: string;
-  availability: "available" | "missing" | "cannot_execute" | "outdated" | "provider_missing";
+  availability: "available" | "missing" | "cannot_execute" | "outdated" | "provider_missing" | "configuration_required";
   version?: string;
   expected_version?: string;
   error?: string;
@@ -41,6 +41,7 @@ export type ToolSummary = {
   ready: boolean;
   action: ToolAction | null;
   settingsKey:
+    | "aria2c.configurationRequired"
     | "settings.toolsAvailable"
     | "settings.toolsMissing"
     | "settings.toolsDamaged"
@@ -50,6 +51,7 @@ export type ToolSummary = {
     | "settings.toolUpdatesAvailable"
     | "settings.homebrewMissing";
   noticeKey:
+    | "aria2c.configurationRequired"
     | "notice.toolchainReady"
     | "notice.toolsMissing"
     | "notice.toolsDamaged"
@@ -59,6 +61,7 @@ export type ToolSummary = {
     | "notice.localToolsDamaged"
     | "notice.homebrewMissing";
   eventKey:
+    | "aria2c.configurationRequired"
     | "event.toolsAvailable"
     | "event.toolsMissing"
     | "event.toolsDamaged"
@@ -125,6 +128,17 @@ export function summarizeTools(tools: ToolStatus[], mode: ToolSummaryMode): Tool
       settingsKey: "settings.homebrewMissing",
       noticeKey: "notice.homebrewMissing",
       eventKey: "event.homebrewMissing",
+      tone: "warning",
+    };
+  }
+
+  if (tools.some((tool) => tool.availability === "configuration_required")) {
+    return {
+      ready: false,
+      action: null,
+      settingsKey: "aria2c.configurationRequired",
+      noticeKey: "aria2c.configurationRequired",
+      eventKey: "aria2c.configurationRequired",
       tone: "warning",
     };
   }
@@ -225,7 +239,7 @@ export function summarizeRemoteTools(
     compareToolchainRevisions(localRevision, localRevision);
   }
   const summary = summarizeTools(tools, "remote");
-  if (summary.action || !remoteRevision) {
+  if (!summary.ready || !remoteRevision) {
     return summary;
   }
   const newer = localRevision === null || compareToolchainRevisions(remoteRevision, localRevision) > 0;

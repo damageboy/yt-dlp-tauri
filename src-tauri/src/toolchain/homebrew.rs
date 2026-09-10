@@ -264,25 +264,31 @@ where
 }
 
 fn probe_installation(installation: &HomebrewInstallation) -> Vec<ToolStatus> {
-    probe_local_toolchain(&LocalToolchainResolution {
+    let mut statuses = probe_local_toolchain(&LocalToolchainResolution {
         yt_dlp: Some(installation.paths.yt_dlp.clone()),
         ffmpeg: Some(installation.paths.ffmpeg.clone()),
         ffprobe: Some(installation.paths.ffprobe.clone()),
         deno: Some(installation.paths.deno.clone()),
-    })
+    });
+    statuses.push(super::probe_executable(
+        "aria2c",
+        &installation.prefix.join("bin/aria2c"),
+    ));
+    statuses
 }
 
 fn provider_missing_statuses(definition: &PlatformToolchainDefinition) -> Vec<ToolStatus> {
     [
-        ("yt-dlp", &definition.executable_names.yt_dlp),
-        ("ffmpeg", &definition.executable_names.ffmpeg),
-        ("ffprobe", &definition.executable_names.ffprobe),
-        ("deno", &definition.executable_names.deno),
+        ("yt-dlp", definition.executable_names.yt_dlp.as_str()),
+        ("ffmpeg", definition.executable_names.ffmpeg.as_str()),
+        ("ffprobe", definition.executable_names.ffprobe.as_str()),
+        ("deno", definition.executable_names.deno.as_str()),
+        ("aria2c", "aria2c"),
     ]
     .into_iter()
     .map(|(name, executable)| ToolStatus {
         name: name.to_string(),
-        relative_path: executable.clone(),
+        relative_path: executable.to_string(),
         full_path: String::new(),
         availability: "provider_missing".to_string(),
         version: None,
@@ -383,6 +389,7 @@ fn status_name_for_executable<'a>(
         ("ffmpeg", names.ffmpeg.as_str()),
         ("ffprobe", names.ffprobe.as_str()),
         ("deno", names.deno.as_str()),
+        ("aria2c", "aria2c"),
     ]
     .into_iter()
     .find_map(|(status_name, candidate)| (candidate == executable).then_some(status_name))
@@ -398,6 +405,7 @@ fn executable_name_for_status<'a>(
         "ffmpeg" => Some(&names.ffmpeg),
         "ffprobe" => Some(&names.ffprobe),
         "deno" => Some(&names.deno),
+        "aria2c" => Some("aria2c"),
         _ => None,
     }
 }
@@ -811,7 +819,7 @@ mod tests {
         let statuses =
             probe_homebrew_with(&macos_definition(), &[], None, |_| false, &runner).unwrap();
 
-        assert_eq!(statuses.len(), 4);
+        assert_eq!(statuses.len(), 5);
         assert!(statuses
             .iter()
             .all(|status| status.availability == "provider_missing"));
@@ -851,6 +859,7 @@ mod tests {
                     "yt-dlp",
                     "ffmpeg",
                     "deno",
+                    "aria2",
                 ]),
             )]
         );
@@ -860,6 +869,63 @@ mod tests {
     fn malformed_outdated_json_is_rejected() {
         let error = parse_outdated_formulae("not json").unwrap_err();
         assert!(error.contains("Invalid Homebrew outdated response"));
+    }
+
+    #[test]
+    fn missing_aria2c_installs_aria2_formula() {
+        let runner = RecordingRunner::with_outputs([output(true, Some(0), "", "")]);
+        let reporter = RecordingReporter::default();
+        let mut missing = available_statuses();
+        missing.push(status("aria2c", "missing"));
+        let mut ready = available_statuses();
+        ready.push(status("aria2c", "available"));
+        let probes = RefCell::new(VecDeque::from([missing, ready]));
+        let statuses = reconcile_homebrew_with(
+            &macos_definition(),
+            &installation(),
+            &reporter,
+            &runner,
+            &|_| probes.borrow_mut().pop_front().unwrap(),
+        )
+        .unwrap();
+        assert!(statuses
+            .iter()
+            .all(|status| status.availability == "available"));
+        assert_eq!(
+            runner.calls.borrow().as_slice(),
+            &[(
+                PathBuf::from("/opt/homebrew/bin/brew"),
+                os_args(["install", "aria2"]),
+            )]
+        );
+    }
+
+    #[test]
+    fn aria2_updates_mark_aria2c_outdated() {
+        let runner = RecordingRunner::with_outputs([output(
+            true,
+            Some(0),
+            r#"{"formulae":[{"name":"aria2"}],"casks":[]}"#,
+            "",
+        )]);
+        let statuses =
+            check_homebrew_updates_with(&macos_definition(), &installation(), &runner, &|_| {
+                let mut statuses = available_statuses();
+                statuses.push(status("aria2c", "available"));
+                statuses
+            })
+            .unwrap();
+        assert_eq!(
+            statuses
+                .iter()
+                .find(|status| status.name == "aria2c")
+                .unwrap()
+                .availability,
+            "outdated"
+        );
+        assert!(runner.calls.borrow()[0]
+            .1
+            .contains(&OsString::from("aria2")));
     }
 
     #[test]
@@ -927,6 +993,7 @@ mod tests {
                         "yt-dlp",
                         "ffmpeg",
                         "deno",
+                        "aria2",
                     ]),
                 ),
                 (
@@ -955,7 +1022,7 @@ mod tests {
             runner.calls.borrow().as_slice(),
             &[(
                 PathBuf::from("/opt/homebrew/bin/brew"),
-                os_args(["reinstall", "yt-dlp", "ffmpeg", "deno"]),
+                os_args(["reinstall", "yt-dlp", "ffmpeg", "deno", "aria2"]),
             )]
         );
         assert_eq!(reporter.events.borrow().len(), 2);

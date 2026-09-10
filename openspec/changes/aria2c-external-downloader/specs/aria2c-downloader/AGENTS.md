@@ -2,4 +2,4 @@
 
 | File | Purpose |
 | --- | --- |
-| `spec.md` | Specifies default-off settings, bounded probes, argument mapping, recovery, cancellation; See change: aria2c-external-downloader. |
+| `spec.md` | Preserves original usage requirements and marks installation rules superseded; See change: aria2c-external-downloader. See change: aria2c-required-tool. |

@@ -25,7 +25,8 @@
         "packages": [
           { "formula": "yt-dlp", "executables": ["yt-dlp"] },
           { "formula": "ffmpeg", "executables": ["ffmpeg", "ffprobe"] },
-          { "formula": "deno", "executables": ["deno"] }
+          { "formula": "deno", "executables": ["deno"] },
+          { "formula": "aria2", "executables": ["aria2c"] }
         ]
       },
       "sourceLabels": { "managed": "Homebrew", "local": "Custom" },
@@ -47,7 +48,8 @@
         "packages": [
           { "formula": "yt-dlp", "executables": ["yt-dlp"] },
           { "formula": "ffmpeg", "executables": ["ffmpeg", "ffprobe"] },
-          { "formula": "deno", "executables": ["deno"] }
+          { "formula": "deno", "executables": ["deno"] },
+          { "formula": "aria2", "executables": ["aria2c"] }
         ]
       },
       "sourceLabels": { "managed": "Homebrew", "local": "Custom" },

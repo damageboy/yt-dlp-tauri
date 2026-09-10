@@ -1,5 +1,7 @@
 # aria2c downloader requirements
 
+> Installation and disabled-operation requirements are superseded by `aria2c-required-tool` following the user correction on 2026-09-11.
+
 ## ADDED Requirements
 
 ### Requirement: Optional persistent configuration

@@ -1,5 +1,7 @@
 # Optional aria2c external downloader
 
+> Installation and disabled-operation requirements are superseded by `aria2c-required-tool` following the user correction on 2026-09-11.
+
 ## Why
 
 The app can now run its required tools on macOS, but Settings cannot select aria2c or control the external downloader's parallelism. Downloads always use yt-dlp's existing downloader selection.

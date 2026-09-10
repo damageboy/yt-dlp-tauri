@@ -399,11 +399,11 @@ async fn auto_detect_local_toolchain(app: AppHandle) -> Result<AppState, String>
 async fn check_tools(app: AppHandle) -> Result<Vec<ToolStatus>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let platform = current_platform_definition()?;
-        match read_toolchain_source(platform.default_source)? {
+        let statuses = match read_toolchain_source(platform.default_source)? {
             ToolchainSource::Managed => match &platform.provider {
                 ManagedProviderDefinition::ArchiveManifest { manifest_target } => {
                     let target = read_manifest_target(&app, manifest_target)?;
-                    probe_manifest_tools(&app, &platform, &target)
+                    return probe_manifest_tools(&app, &platform, &target);
                 }
                 ManagedProviderDefinition::Homebrew { .. } => probe_homebrew_toolchain(&platform),
             },
@@ -413,7 +413,8 @@ async fn check_tools(app: AppHandle) -> Result<Vec<ToolStatus>, String> {
                     resolve_local_toolchain(&config, &platform.executable_names, &platform.os)?;
                 Ok(probe_local_toolchain(&resolution))
             }
-        }
+        }?;
+        with_required_aria2c(&app, statuses)
     })
     .await
     .map_err(join_error)?
@@ -474,7 +475,7 @@ async fn check_managed_tool_updates(
             ManagedProviderDefinition::Homebrew { .. } => Ok(ManagedToolUpdateResult {
                 status: "available".to_string(),
                 source: Some("homebrew".to_string()),
-                tools: check_homebrew_updates(&platform)?,
+                tools: with_required_aria2c(&app, check_homebrew_updates(&platform)?)?,
                 manifest_json: None,
                 remote_revision: None,
             }),
@@ -505,7 +506,7 @@ async fn install_tools(
             }
             ManagedProviderDefinition::Homebrew { .. } => {
                 let reporter = TauriProgressReporter { app: &app };
-                reconcile_homebrew_toolchain(&platform, &reporter)
+                with_required_aria2c(&app, reconcile_homebrew_toolchain(&platform, &reporter)?)
             }
         }
     })
@@ -560,7 +561,7 @@ async fn reinstall_tools(
             }
             ManagedProviderDefinition::Homebrew { .. } => {
                 let reporter = TauriProgressReporter { app: &app };
-                reinstall_homebrew_toolchain(&platform, &reporter)
+                with_required_aria2c(&app, reinstall_homebrew_toolchain(&platform, &reporter)?)
             }
         }
     })
@@ -570,7 +571,9 @@ async fn reinstall_tools(
 
 #[tauri::command]
 async fn parse_metadata(app: AppHandle, url: String) -> Result<VideoMetadata, String> {
+    let aria2c_config = app.state::<Aria2cState>().snapshot_config()?;
     tauri::async_runtime::spawn_blocking(move || {
+        aria2c::require_aria2c(&aria2c_config)?;
         let platform = current_platform_definition()?;
         validate_http_url(&url)?;
         let tools = locate_tools(&app, &platform)?;
@@ -629,12 +632,8 @@ async fn download_video(
     let guard = begin_download(&process_state)?;
 
     tauri::async_runtime::spawn_blocking(move || {
-        let aria2c_args = if aria2c_config.enabled {
-            let status = aria2c::inspect_aria2c(&aria2c_config)?;
-            aria2c::aria2c_downloader_args(&aria2c_config, &status)?
-        } else {
-            Vec::new()
-        };
+        let status = aria2c::require_aria2c(&aria2c_config)?;
+        let aria2c_args = aria2c::aria2c_downloader_args(&aria2c_config, &status)?;
         let platform = current_platform_definition()?;
         validate_http_url(&request.url)?;
         let tools = locate_tools(&app, &platform)?;
@@ -788,6 +787,34 @@ fn request_download_cancel(state: &DownloadProcessState) -> Result<(), String> {
         kill_process_tree(pid)?;
     }
     Ok(())
+}
+
+fn with_required_aria2c(
+    app: &AppHandle,
+    mut statuses: Vec<ToolStatus>,
+) -> Result<Vec<ToolStatus>, String> {
+    // Preserve managed install/update diagnostics, including a missing Homebrew formula.
+    if statuses.iter().any(|status| {
+        status.name == "aria2c"
+            && status.availability != "available"
+            && status.availability != "outdated"
+    }) {
+        return Ok(statuses);
+    }
+    let config = app.state::<Aria2cState>().snapshot_config()?;
+    let mut required = aria2c::inspect_aria2c(&config)?.tool_status();
+    if required.availability != "available" {
+        // This selected/PATH executable is outside package installation remediation.
+        required.availability = "configuration_required".into();
+    }
+    if let Some(existing) = statuses.iter_mut().find(|status| status.name == "aria2c") {
+        if required.availability != "available" {
+            *existing = required;
+        }
+    } else {
+        statuses.push(required);
+    }
+    Ok(statuses)
 }
 
 fn locate_tools(
@@ -1282,7 +1309,7 @@ fn install_and_activate_manifest(
     }
     let paths = promoted.paths.clone();
     promoted.commit();
-    probe_target(&paths, &target)
+    with_required_aria2c(app, probe_target(&paths, &target)?)
 }
 
 struct TauriProgressReporter<'a> {
@@ -1301,7 +1328,7 @@ fn probe_manifest_tools(
     target: &ManifestTarget,
 ) -> Result<Vec<ToolStatus>, String> {
     let tools = locate_managed_tools(app, platform)?;
-    probe_target(&tools, target)
+    with_required_aria2c(app, probe_target(&tools, target)?)
 }
 
 fn parse_metadata_json(json: &str, fallback_url: &str) -> Result<VideoMetadata, String> {

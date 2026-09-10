@@ -54,7 +54,7 @@
 | 后端 | Rust |
 | 前端 | Vanilla TypeScript, Vite |
 | UI | 固定尺寸的产品型桌面界面 |
-| 工具链 | 项目管理的 Windows x64 归档、macOS Homebrew formula，或可信的自定义 `yt-dlp`、`ffmpeg`、`ffprobe`、`deno` 可执行文件 |
+| 工具链 | 项目管理的 Windows x64 归档、macOS Homebrew formula，或可信的自定义 `yt-dlp`、`ffmpeg`、`ffprobe`、`deno`、`aria2c` 可执行文件 |
 | 构建产物 | Windows x64 NSIS；本地 macOS `.app` 与 `.dmg` |
 
 ## 快速开始
@@ -73,7 +73,7 @@
 如果尚未安装 Homebrew，请在你自己的控制下从 `https://brew.sh/` 安装。应用不会安装 Homebrew，也不会运行它的远程 bootstrap 脚本。然后安装 formula：
 
 ```bash
-brew install yt-dlp ffmpeg deno
+brew install yt-dlp ffmpeg deno aria2
 ```
 
 #### 2. 安装依赖并运行或构建
@@ -158,21 +158,21 @@ src-tauri\target\release\bundle\nsis\
 
 在 Windows 上，Settings 将工具来源显示为 `应用管理` 和 `本地工具`。应用管理模式使用经过验证的项目托管 Windows 归档 revision。本地工具模式会在继承的 `PATH` 中查找 `yt-dlp.exe`、`deno.exe`，并查找同时包含 `ffmpeg.exe` 和 `ffprobe.exe` 的目录；路径控件接受可执行文件或目录的绝对路径。
 
-在 macOS 上，相同的来源显示为 `Homebrew` 和 `Custom`。仅当 Homebrew 已经存在时，Homebrew 模式才能安装、更新或重新安装经过验证的 `yt-dlp`、`ffmpeg` 和 `deno` formula。如果缺少 Brew，请自行从 `https://brew.sh/` 安装；应用绝不会静默安装 Homebrew。
+在 macOS 上，相同的来源显示为 `Homebrew` 和 `Custom`。仅当 Homebrew 已经存在时，Homebrew 模式才能安装、更新或重新安装经过验证的 `yt-dlp`、`ffmpeg`、`deno` 和 `aria2` formula。如果缺少 Brew，请自行从 `https://brew.sh/` 安装；应用绝不会静默安装 Homebrew。
 
 Custom 模式接受无扩展名的 `yt-dlp` 和 `deno` 可执行文件绝对路径，以及包含无扩展名 `ffmpeg` 和 `ffprobe` 的绝对目录路径。自动检测会搜索继承的 `PATH`，以及对 Finder 启动安全的标准 Brew 前缀 `/opt/homebrew/bin` 和 `/usr/local/bin`。`使用 PATH` 会清除显式覆盖路径，并重新执行自动检测。
 
 应用会运行自定义/本地工具的版本命令，并执行与受管工具相同的确定性媒体兼容性测试。应用不会固定自定义/本地文件哈希、安装更新或替换这些可执行文件。它们以当前用户权限运行；所选 yt-dlp 会接收视频 URL 和 Cookie 文件，因此应只配置可信的可执行文件。
 
-## 可选的 aria2c 下载器
+## 必需的 aria2c 工具，可选的下载方式
 
-请自行安装 aria2c（macOS 使用 `brew install aria2`），然后打开 **设置 → aria2c 外部下载器**。选择可执行文件或点击 **使用 PATH**，打开 **使用 aria2c**，将 **并行度** 设为 1 到 16 的整数，再点击 **保存**。默认禁用，并行度默认为 16。
+即使关闭下载时使用 aria2c，它仍是必需工具。在 macOS 上，**设置 → 工具链** 会通过 Homebrew 安装、验证、更新和重新安装 `aria2` formula。自定义配置和当前 Windows 归档需要在 PATH 中提供可用的 `aria2c`/`aria2c.exe`，或显式选择可执行文件。打开 **设置 → aria2c 下载器**。选择可执行文件或点击 **使用 PATH**，打开 **使用 aria2c**，将 **并行度** 设为 1 到 16 的整数，再点击 **保存**。默认禁用，并行度默认为 16。
 
-查找顺序为：所选绝对路径、PATH、macOS Homebrew 路径（包括自定义 Homebrew 前缀）。**刷新状态** 显示版本或具体错误。所选文件失效时不会静默改用其他安装；即使文件消失，也可以保存禁用设置以恢复普通下载。
+查找顺序为：所选绝对路径、PATH、macOS Homebrew 路径（包括自定义 Homebrew 前缀）。**刷新状态** 显示版本或具体错误。所选文件失效时不会静默改用其他安装；即使文件消失，也可以保存禁用设置，但必须恢复或重新配置 aria2c 后，工具链才算完整。
 
 并行度 N 生成 `--downloader <绝对路径> --downloader-args "aria2c:-j N -x N -s N"`，分别设置并发任务数、每个任务连接同一服务器的连接数和分片数。N 不是总连接数上限，也不是同时下载的视频数量。yt-dlp 根据协议选择下载器，某些格式仍使用原生下载器。没有数值进度时显示不确定进度条。
 
-设置保存在 `state/aria2c.json`。aria2c 独立于必需的 yt-dlp/FFmpeg/Deno 工具链，其安装、更新和移除均由用户管理。详见 [aria2c 配置与验证](docs/aria2c.md)。
+设置保存在 `state/aria2c.json`。使用开关仅控制 yt-dlp 的下载器参数，不会卸载 aria2c，也不会将其从工具验证中移除。保存设置后会重新检查工具是否就绪。详见 [aria2c 配置与验证](docs/aria2c.md)。
 
 ## 工具链维护
 

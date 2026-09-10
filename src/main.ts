@@ -106,8 +106,9 @@ const TOAST_AUTO_DISMISS_MS: Record<NoticeTone, number> = {
 
 const translations = {
   en: {
-    "aria2c.title": "aria2c external downloader",
-    "aria2c.hint": "Optional parallel transfers for supported formats",
+    "aria2c.configurationRequired": "aria2c is required. In aria2c settings, choose a working executable or Use PATH, then Save.",
+    "aria2c.title": "aria2c downloader",
+    "aria2c.hint": "Required tool; enable its use for parallel transfers",
     "aria2c.enabled": "Use aria2c",
     "aria2c.executable": "Executable",
     "aria2c.usePath": "Use PATH",
@@ -119,7 +120,7 @@ const translations = {
     "aria2c.saveFailed": "Could not save aria2c settings: {message}",
     "aria2c.invalid": "Enter a whole number from 1 to 16",
     "aria2c.notChecked": "Not checked",
-    "aria2c.disabled": "Disabled",
+    "aria2c.disabled": "Usage off",
     "aria2c.available": "Available",
     "aria2c.checking": "Checking aria2c…",
     "aria2c.notFound": "Not found — install aria2 or choose its executable",
@@ -237,7 +238,7 @@ const translations = {
     "settings.toolchainHint": "Per-target tools are verified with SHA-256.",
     "settings.localToolchainHint": "Local executables are verified by behavior and remain user-managed.",
     "settings.homebrewToolchainHint": "Required tools are managed with Homebrew.",
-    "settings.homebrewGuidance": "Homebrew manages the yt-dlp, ffmpeg, and deno formulas.",
+    "settings.homebrewGuidance": "Homebrew manages the yt-dlp, ffmpeg, deno, and aria2 formulas.",
     "settings.homebrewMissing": "Homebrew is not installed. Install it from brew.sh, then verify tools again.",
     "settings.homebrewPrefix": "Homebrew prefix: {path}",
     "settings.homebrewPrefixPending": "Homebrew prefix not found",
@@ -261,7 +262,7 @@ const translations = {
     "settings.localPathNotDetected": "Not detected",
     "settings.detectingLocalTools": "Detecting local tools from PATH...",
     "settings.usePathHint": "Clear selected paths and resolve all local tools from the current PATH.",
-    "settings.localToolsAvailable": "Local yt-dlp, FFmpeg, FFprobe and Deno passed verification.",
+    "settings.localToolsAvailable": "Local yt-dlp, FFmpeg, FFprobe, Deno and aria2c passed verification.",
     "settings.localToolsMissing": "Choose missing local paths or use the current PATH.",
     "settings.localToolsDamaged": "One or more local tools failed version or compatibility checks.",
     "settings.toolSourceFailed": "Could not change tool source: {message}",
@@ -274,9 +275,9 @@ const translations = {
     "settings.toolUpdatesInvalidManifest": "The released tool manifest could not be read.",
     "settings.toolUpdatesFailed": "Tool update check failed: {message}",
     "settings.reinstallConfirm": "Download and verify a fresh toolchain at {path}? The current revision stays active until the replacement passes every check",
-    "settings.homebrewInstallConfirm": "Install Homebrew formulas yt-dlp, ffmpeg, and deno?",
-    "settings.homebrewUpdateConfirm": "Update Homebrew formulas yt-dlp, ffmpeg, and deno?",
-    "settings.homebrewReinstallConfirm": "Reinstall Homebrew formulas yt-dlp, ffmpeg, and deno?",
+    "settings.homebrewInstallConfirm": "Install Homebrew formulas yt-dlp, ffmpeg, deno, and aria2?",
+    "settings.homebrewUpdateConfirm": "Update Homebrew formulas yt-dlp, ffmpeg, deno, and aria2?",
+    "settings.homebrewReinstallConfirm": "Reinstall Homebrew formulas yt-dlp, ffmpeg, deno, and aria2?",
     "settings.toolCheckFailed": "Tool check failed.",
     "settings.toolsInstalled": "Toolchain installed.",
     "settings.toolsInstallPartial": "Install finished, but some tools still need attention.",
@@ -288,7 +289,7 @@ const translations = {
     "settings.chooseFolder": "Choose download folder",
     "tool.currentUnknown": "unknown",
     "event.booted": "App booted.",
-    "event.toolsAvailable": "yt-dlp, ffmpeg, ffprobe and deno are available.",
+    "event.toolsAvailable": "yt-dlp, ffmpeg, ffprobe, deno and aria2c are available.",
     "event.toolsMissing": "Tool check found missing tools.",
     "event.toolsDamaged": "Tool check found tools that need reinstall.",
     "event.localToolsAvailable": "Local toolchain passed verification.",
@@ -313,8 +314,9 @@ const translations = {
     "event.cookiesCleared": "Cookie file cleared.",
   },
   zh: {
-    "aria2c.title": "aria2c 外部下载器",
-    "aria2c.hint": "为支持的格式启用并行传输",
+    "aria2c.configurationRequired": "aria2c 是必需工具。请在 aria2c 设置中选择可用的可执行文件或使用 PATH，然后保存。",
+    "aria2c.title": "aria2c 下载器",
+    "aria2c.hint": "必需工具；可选择启用并行传输",
     "aria2c.enabled": "使用 aria2c",
     "aria2c.executable": "可执行文件",
     "aria2c.usePath": "使用 PATH",
@@ -326,7 +328,7 @@ const translations = {
     "aria2c.saveFailed": "无法保存 aria2c 设置：{message}",
     "aria2c.invalid": "请输入 1 到 16 的整数",
     "aria2c.notChecked": "尚未检查",
-    "aria2c.disabled": "已禁用",
+    "aria2c.disabled": "下载时不使用",
     "aria2c.available": "可用",
     "aria2c.checking": "正在检查 aria2c…",
     "aria2c.notFound": "未找到 — 请安装 aria2 或选择其可执行文件",
@@ -444,7 +446,7 @@ const translations = {
     "settings.toolchainHint": "按目标平台安装，并用 SHA-256 校验。",
     "settings.localToolchainHint": "本地程序按实际行为验证，版本与文件由用户管理。",
     "settings.homebrewToolchainHint": "所需工具由 Homebrew 管理。",
-    "settings.homebrewGuidance": "Homebrew 管理 yt-dlp、ffmpeg 和 deno formula。",
+    "settings.homebrewGuidance": "Homebrew 管理 yt-dlp、ffmpeg、deno 和 aria2 formula。",
     "settings.homebrewMissing": "未安装 Homebrew。请从 brew.sh 安装，然后重新验证工具。",
     "settings.homebrewPrefix": "Homebrew 前缀：{path}",
     "settings.homebrewPrefixPending": "未找到 Homebrew 前缀",
@@ -468,7 +470,7 @@ const translations = {
     "settings.localPathNotDetected": "未检测到",
     "settings.detectingLocalTools": "正在从 PATH 检测本地工具...",
     "settings.usePathHint": "清除已选择的路径，并从当前 PATH 重新解析全部本地工具。",
-    "settings.localToolsAvailable": "本地 yt-dlp、FFmpeg、FFprobe 和 Deno 已通过验证。",
+    "settings.localToolsAvailable": "本地 yt-dlp、FFmpeg、FFprobe、Deno 和 aria2c 已通过验证。",
     "settings.localToolsMissing": "请选择缺失路径，或使用当前 PATH。",
     "settings.localToolsDamaged": "部分本地工具未通过版本或组合兼容性检查。",
     "settings.toolSourceFailed": "无法切换工具来源：{message}",
@@ -481,9 +483,9 @@ const translations = {
     "settings.toolUpdatesInvalidManifest": "发布的工具清单无法读取。",
     "settings.toolUpdatesFailed": "工具更新检查失败：{message}",
     "settings.reinstallConfirm": "重新下载并校验 {path} 下的工具链？新版本通过全部检查前会继续使用当前版本",
-    "settings.homebrewInstallConfirm": "安装 Homebrew formula yt-dlp、ffmpeg 和 deno？",
-    "settings.homebrewUpdateConfirm": "更新 Homebrew formula yt-dlp、ffmpeg 和 deno？",
-    "settings.homebrewReinstallConfirm": "重新安装 Homebrew formula yt-dlp、ffmpeg 和 deno？",
+    "settings.homebrewInstallConfirm": "安装 Homebrew formula yt-dlp、ffmpeg、deno 和 aria2？",
+    "settings.homebrewUpdateConfirm": "更新 Homebrew formula yt-dlp、ffmpeg、deno 和 aria2？",
+    "settings.homebrewReinstallConfirm": "重新安装 Homebrew formula yt-dlp、ffmpeg、deno 和 aria2？",
     "settings.toolCheckFailed": "工具检查失败。",
     "settings.toolsInstalled": "工具链已安装。",
     "settings.toolsInstallPartial": "安装结束，但仍有工具需要处理。",
@@ -495,7 +497,7 @@ const translations = {
     "settings.chooseFolder": "选择下载目录",
     "tool.currentUnknown": "未知",
     "event.booted": "应用已启动。",
-    "event.toolsAvailable": "yt-dlp、ffmpeg、ffprobe 和 deno 均可用。",
+    "event.toolsAvailable": "yt-dlp、ffmpeg、ffprobe、deno 和 aria2c 均可用。",
     "event.toolsMissing": "工具检查发现缺失项。",
     "event.toolsDamaged": "工具检查发现需要重新安装的项目。",
     "event.localToolsAvailable": "本地工具链已通过验证。",
@@ -940,15 +942,18 @@ async function inspectAria2c() {
 async function saveAria2c() {
   if (state.busy || parseParallelConnections(state.aria2c.parallelInput) === null) return;
   state.aria2cMessage = null;
+  let saved = false;
   setBusy(true);
   try {
     await state.aria2c.save(config => invoke<Aria2cSettings>("save_aria2c_config", { config }));
     state.aria2cMessage = { key: "aria2c.saved" };
+    saved = true;
   } catch (error) {
     state.aria2cMessage = { key: "aria2c.saveFailed", detail: String(error) };
   } finally {
     setBusy(false);
   }
+  if (saved) await verifyTools({ quietReady: true });
 }
 
 function renderAria2c() {
