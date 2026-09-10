@@ -207,6 +207,7 @@ fn tool_version_args(name: &str) -> &'static [&'static str] {
     }
 }
 
+/// Shared executable probe for local and provider-resolved toolchains.
 pub(crate) fn probe_executable(name: &str, full_path: &Path) -> ToolStatus {
     probe_tool(
         name,
@@ -301,6 +302,22 @@ fn process_failure_message(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shared_executable_probe_reports_a_missing_provider_path() {
+        let path = std::env::temp_dir().join(format!(
+            "yt-dlp-tauri-missing-provider-probe-{}",
+            unique_nonce()
+        ));
+
+        let status = probe_executable("yt-dlp", &path);
+
+        assert_eq!(status.name, "yt-dlp");
+        assert_eq!(status.relative_path, path.display().to_string());
+        assert_eq!(status.full_path, path.display().to_string());
+        assert_eq!(status.availability, "missing");
+        assert_eq!(status.error.as_deref(), Some("Tool file is missing"));
+    }
 
     #[test]
     fn marks_available_tool_outdated_when_manifest_hash_mismatches() {
