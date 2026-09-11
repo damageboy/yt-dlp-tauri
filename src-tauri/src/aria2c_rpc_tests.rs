@@ -177,12 +177,12 @@ impl Server {
                 let request: Value = serde_json::from_slice(&body).unwrap();
                 assert_eq!(request["params"][0], "token:test-secret");
                 let body = serde_json::to_vec(&reply(request)).unwrap();
-                write!(
+                // Timeout tests deliberately close the client before this reply.
+                let _ = write!(
                     stream,
                     "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
                     body.len()
-                )
-                .unwrap();
+                );
                 let _ = stream.write_all(&body);
             }
         });
@@ -325,6 +325,8 @@ fn absent_rpc_is_normal_before_connection_but_not_after_an_active_session() {
         secret: "test-secret".into(),
     })
     .unwrap();
+    // Windows can take over one second to report a refused loopback connection.
+    monitor.request_timeout = Duration::from_secs(2);
     assert!(monitor.poll().unwrap().is_none());
     monitor.session = Some("connected".into());
     monitor.last_success = Instant::now() - Duration::from_secs(20);

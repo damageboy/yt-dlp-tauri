@@ -697,6 +697,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn brew_discovery_prefers_path_then_environment_then_standard_prefixes() {
         let path_brew = PathBuf::from("/custom/bin/brew");
         let env_prefix = PathBuf::from("/env/homebrew");
@@ -711,6 +712,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn brew_discovery_finds_apple_silicon_with_minimal_path() {
         let found = find_homebrew_with(&[PathBuf::from("/usr/bin")], None, |path| {
             path == Path::new("/opt/homebrew/bin/brew")
@@ -774,6 +776,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn locating_uses_absolute_brew_and_builds_prefix_bin_paths() {
         let runner =
             RecordingRunner::with_outputs([output(true, Some(0), "\n/opt/homebrew\n", "")]);
