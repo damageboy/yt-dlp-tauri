@@ -5,6 +5,7 @@ import { validateArchivePolicy } from "./archive-contract.mjs";
 const SOURCE_ADAPTERS = new Set(["github-release"]);
 const SOURCE_SELECTIONS = new Set([
   "latest-stable",
+  "pinned",
   "previous-complete-month",
 ]);
 const ASSET_KINDS = new Set(["file", "zip"]);
@@ -124,6 +125,10 @@ function validateAsset(assetValue, source, assetIndex, targets) {
     }
   }
 
+  if (source.selection === "pinned" && !/^[a-f0-9]{64}$/u.test(asset.expectedSha256 ?? "")) {
+    throw new Error(`source ${source.id} pinned asset expectedSha256 must be a lowercase SHA-256 digest`);
+  }
+
   if (!Array.isArray(asset.members) || asset.members.length === 0) {
     throw new Error(`source ${source.id} asset members must be a non-empty array`);
   }
@@ -198,6 +203,11 @@ export function validateToolchainPolicy(value) {
     source.selection = requireNonEmptyString(source.selection, `source ${source.id} selection`);
     if (!SOURCE_SELECTIONS.has(source.selection)) {
       throw new Error(`source ${source.id} uses unsupported selection ${source.selection}`);
+    }
+
+    if (source.selection === "pinned") {
+      source.releaseTag = requireNonEmptyString(source.releaseTag, `source ${source.id} releaseTag`);
+      if (source.version !== undefined) source.version = requireNonEmptyString(source.version, `source ${source.id} version`);
     }
 
     source.repository = requireNonEmptyString(

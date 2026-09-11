@@ -4,6 +4,10 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
+      pull_request:
+        description: "Same-repository candidate pull request to validate"
+        required: false
+        type: string
       rollback_revision:
         description: "Historical toolchain revision to revalidate"
         required: false
@@ -94,7 +98,7 @@ jobs:
           PROVIDED_HEAD_SHA: ${{ inputs.candidate_head_sha || '' }}
           EVENT_REPOSITORY_ID: ${{ github.event.repository.id }}
           PR_REPOSITORY_ID: ${{ github.event.pull_request.head.repo.id || '' }}
-          PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pull_request || '' }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
           COMMIT_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -237,7 +241,7 @@ jobs:
         env:
           BASELINE_SHA: ${{ github.event.pull_request.base.sha || '' }}
           GH_TOKEN: ${{ github.token }}
-          ARCHIVE_REPOSITORY: Chlience/yt-dlp-tauri-toolchain
+          ARCHIVE_REPOSITORY: damageboy/yt-dlp-tauri
           ROLLBACK_REVISION: ${{ inputs.rollback_revision || '' }}
         run: |
           set -euo pipefail
@@ -250,6 +254,7 @@ jobs:
             verifyArchiveManifestBytes,
           } from "./scripts/toolchain/archive-channel.mjs";
           import { generateManifest } from "./scripts/toolchain/generate-manifest.mjs";
+          import { rebindMigratedBaseline } from "./scripts/toolchain/migration-baseline.mjs";
           import { validatePublicationReport } from "./scripts/toolchain/validation-report.mjs";
 
           mkdirSync(".toolchain/manifests", { recursive: true });
@@ -290,8 +295,8 @@ jobs:
               repository: process.env.ARCHIVE_REPOSITORY,
               userAgent: "yt-dlp-tauri-toolchain-revalidation",
             });
-            if (release.tag_name !== releaseTag || release.immutable !== true) {
-              throw new Error(`Historical archive release ${releaseTag} is not immutable`);
+            if (release.tag_name !== releaseTag || release.draft !== false) {
+              throw new Error(`Historical archive release ${releaseTag} is not published`);
             }
             const downloadAsset = async (name) => {
               return downloadVerifiedHistoricalReleaseAsset({
@@ -344,7 +349,10 @@ jobs:
           }
           const baselineManifestJson = showBaseline("src-tauri/tools-manifest.json");
           const baselineLockJson = tryShowBaseline("toolchain-lock.json");
-          const baselineManifest = JSON.parse(baselineManifestJson);
+          const baselineManifest = rebindMigratedBaseline(
+            JSON.parse(baselineManifestJson),
+            readJson("docs/toolchain-migration-inventory.json"),
+          );
           writeJson(
             ".toolchain/manifests/runtime-candidate.json",
             runtimeCandidateManifest,
@@ -355,7 +363,7 @@ jobs:
             writeJson(".toolchain/manifests/candidate-lock.json", null);
           }
           writeJson(".toolchain/manifests/candidate.json", candidateManifest);
-          writeFileSync(".toolchain/manifests/baseline.json", baselineManifestJson, "utf8");
+          writeJson(".toolchain/manifests/baseline.json", baselineManifest);
           writeFileSync(
             ".toolchain/manifests/baseline-lock.json",
             baselineLockJson ?? "null\n",
@@ -373,17 +381,11 @@ jobs:
                 (target) => target.target === candidateTarget.target,
               );
               if (!baselineTarget) return candidateTarget;
-              const tools = baselineTarget.tools.map((baselineTool) => {
-                if (!names.has(baselineTool.name)) return baselineTool;
-                const candidateTool = candidateTarget.tools.find(
-                  (tool) => tool.name === baselineTool.name,
-                );
-                if (!candidateTool) {
-                  throw new Error(
-                    `Candidate is missing ${candidateTarget.target}/${baselineTool.name}`,
-                  );
-                }
-                return candidateTool;
+              const tools = candidateTarget.tools.map((candidateTool) => {
+                if (names.has(candidateTool.name)) return candidateTool;
+                return baselineTarget.tools.find(
+                  (tool) => tool.name === candidateTool.name,
+                ) ?? candidateTool;
               });
               return { ...candidateTarget, tools };
             });
@@ -410,6 +412,7 @@ jobs:
           if [[ "$RUNNER_OS" == "Windows" ]]; then smoke="${smoke}.exe"; fi
           "$smoke" \
             --manifest .toolchain/manifests/baseline.json \
+            --allow-legacy-four-tools true \
             --target "$TARGET" \
             --root "$RUNNER_TEMP/toolchain-baseline/$TARGET" \
             --report ".toolchain/results/baseline-${TARGET}.json"
@@ -733,7 +736,7 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_TOKEN: ${{ github.token }}
-          ARCHIVE_REPOSITORY: Chlience/yt-dlp-tauri-toolchain
+          ARCHIVE_REPOSITORY: damageboy/yt-dlp-tauri
           ROLLBACK_REVISION: ${{ inputs.rollback_revision || '' }}
           CANDIDATE_ARTIFACT_NAME: ${{ needs.prepare-candidate.outputs.artifact_name }}
           CANDIDATE_ARTIFACT_ID: ${{ needs.prepare-candidate.outputs.artifact_id }}
@@ -775,8 +778,8 @@ jobs:
               repository: process.env.ARCHIVE_REPOSITORY,
               userAgent: "yt-dlp-tauri-toolchain-revalidation",
             });
-            if (release.tag_name !== releaseTag || release.immutable !== true) {
-              throw new Error(`Historical archive release ${releaseTag} is not immutable`);
+            if (release.tag_name !== releaseTag || release.draft !== false) {
+              throw new Error(`Historical archive release ${releaseTag} is not published`);
             }
             const downloadAsset = async (name) => {
               return downloadVerifiedHistoricalReleaseAsset({

@@ -1,6 +1,6 @@
 import { basename, extname } from "node:path";
 
-const ARCHIVE_REPOSITORY = "Chlience/yt-dlp-tauri-toolchain";
+const ARCHIVE_REPOSITORY = "damageboy/yt-dlp-tauri";
 const ASSET_NAME_TEMPLATE =
   "{source}-{version}-{assetStem}-{sha256Prefix}{extension}";
 const REVISION_PATTERN = /^[0-9]{8}\.[1-9][0-9]*$/u;

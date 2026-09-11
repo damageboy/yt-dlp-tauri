@@ -2,6 +2,13 @@
 
 Tool updates are published independently from application releases
 
+## 20260911.1 - 2026-09-11
+
+- `aria2`: added `1.37.0`
+- `deno`: `v2.9.5` asset metadata updated
+- `ffmpeg-windows`: `autobuild-2026-07-31-16-16` asset metadata updated
+- `yt-dlp`: `2026.08.19` asset metadata updated
+
 ## 20260824.1 - 2026-08-24
 
 - `yt-dlp`: `2026.07.04` -> `2026.08.19`

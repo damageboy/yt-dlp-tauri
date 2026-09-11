@@ -17,7 +17,7 @@
       "selection": "latest-stable",
       "archive": {
         "enabled": true,
-        "repository": "Chlience/yt-dlp-tauri-toolchain",
+        "repository": "damageboy/yt-dlp-tauri",
         "assetNameTemplate": "{source}-{version}-{assetStem}-{sha256Prefix}{extension}"
       },
       "redistribution": {
@@ -56,7 +56,7 @@
       "selection": "latest-stable",
       "archive": {
         "enabled": true,
-        "repository": "Chlience/yt-dlp-tauri-toolchain",
+        "repository": "damageboy/yt-dlp-tauri",
         "assetNameTemplate": "{source}-{version}-{assetStem}-{sha256Prefix}{extension}"
       },
       "redistribution": {
@@ -96,7 +96,7 @@
       "selection": "previous-complete-month",
       "archive": {
         "enabled": true,
-        "repository": "Chlience/yt-dlp-tauri-toolchain",
+        "repository": "damageboy/yt-dlp-tauri",
         "assetNameTemplate": "{source}-{version}-{assetStem}-{sha256Prefix}{extension}"
       },
       "redistribution": {
@@ -134,6 +134,49 @@
               "path": "Tools/win-x64/ffmpeg/bin/ffprobe.exe",
               "archivePathSuffix": "bin/ffprobe.exe",
               "licenseNotes": "Distributed from the same GPL FFmpeg build as ffmpeg.exe."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "aria2",
+      "adapter": "github-release",
+      "repository": "aria2/aria2",
+      "selection": "pinned",
+      "releaseTag": "release-1.37.0",
+      "version": "1.37.0",
+      "archive": {
+        "enabled": true,
+        "repository": "damageboy/yt-dlp-tauri",
+        "assetNameTemplate": "{source}-{version}-{assetStem}-{sha256Prefix}{extension}"
+      },
+      "redistribution": {
+        "licenseFiles": [
+          "third-party/aria2/COPYING"
+        ],
+        "requiredEvidence": [
+          "binary-release",
+          "source-revision",
+          "source-license",
+          "third-party-notices"
+        ],
+        "noticeFiles": [
+          "THIRD-PARTY-NOTICES.md"
+        ]
+      },
+      "assets": [
+        {
+          "target": "win-x64",
+          "assetName": "aria2-1.37.0-win-64bit-build1.zip",
+          "expectedSha256": "67d015301eef0b612191212d564c5bb0a14b5b9c4796b76454276a4d28d9b288",
+          "kind": "zip",
+          "members": [
+            {
+              "tool": "aria2c",
+              "path": "Tools/win-x64/aria2c/aria2c.exe",
+              "archivePathSuffix": "aria2c.exe",
+              "licenseNotes": "Official Windows x64 aria2 1.37.0 ZIP preserved byte for byte; aria2 is GPL-2.0-or-later. See third-party/aria2/COPYING and THIRD-PARTY-NOTICES.md."
             }
           ]
         }

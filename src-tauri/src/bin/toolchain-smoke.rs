@@ -12,6 +12,7 @@ struct SmokeArguments {
     root: PathBuf,
     report: PathBuf,
     asset_root: Option<PathBuf>,
+    allow_legacy_four_tools: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -45,6 +46,25 @@ fn run() -> Result<(), String> {
     })?;
     let manifest = parse_manifest(&manifest_json)?;
     let target = manifest_target(&manifest, &arguments.target)?;
+    for required in ["yt-dlp", "ffmpeg", "ffprobe", "deno", "aria2c"] {
+        if required == "aria2c"
+            && arguments.allow_legacy_four_tools
+            && !target.tools.iter().any(|tool| tool.name == "aria2c")
+        {
+            continue;
+        }
+        if target
+            .tools
+            .iter()
+            .filter(|tool| tool.name == required)
+            .count()
+            != 1
+        {
+            return Err(format!(
+                "Native smoke manifest must contain exactly one {required}"
+            ));
+        }
+    }
     let temp_root = arguments.root.join(".toolchain-downloads");
     let paths = install_target(InstallTargetRequest {
         target: &target,
@@ -82,6 +102,7 @@ fn parse_arguments(arguments: impl IntoIterator<Item = String>) -> Result<SmokeA
     let mut root = None;
     let mut report = None;
     let mut asset_root = None;
+    let mut allow_legacy_four_tools = None;
     let mut arguments = arguments.into_iter();
 
     while let Some(flag) = arguments.next() {
@@ -94,6 +115,7 @@ fn parse_arguments(arguments: impl IntoIterator<Item = String>) -> Result<SmokeA
             "--root" => &mut root,
             "--report" => &mut report,
             "--asset-root" => &mut asset_root,
+            "--allow-legacy-four-tools" => &mut allow_legacy_four_tools,
             _ => return Err(format!("Unknown argument: {flag}")),
         };
         if slot.replace(value).is_some() {
@@ -107,6 +129,14 @@ fn parse_arguments(arguments: impl IntoIterator<Item = String>) -> Result<SmokeA
         root: PathBuf::from(root.ok_or("--root is required")?),
         report: PathBuf::from(report.ok_or("--report is required")?),
         asset_root: asset_root.map(PathBuf::from),
+        allow_legacy_four_tools: allow_legacy_four_tools
+            .map(|value| {
+                value
+                    .parse::<bool>()
+                    .map_err(|_| "--allow-legacy-four-tools requires true or false")
+            })
+            .transpose()?
+            .unwrap_or(false),
     })
 }
 
@@ -144,6 +174,33 @@ fn write_report(path: &std::path::Path, report: &SmokeReport) -> Result<(), Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn legacy_baseline_requires_explicit_opt_in() {
+        let base = [
+            "--manifest",
+            "manifest.json",
+            "--target",
+            "win-x64",
+            "--root",
+            "tools",
+            "--report",
+            "report.json",
+        ]
+        .map(String::from)
+        .to_vec();
+        assert!(
+            !parse_arguments(base.clone())
+                .unwrap()
+                .allow_legacy_four_tools
+        );
+        let mut legacy = base.clone();
+        legacy.extend(["--allow-legacy-four-tools".into(), "true".into()]);
+        assert!(parse_arguments(legacy).unwrap().allow_legacy_four_tools);
+        let mut invalid = base;
+        invalid.extend(["--allow-legacy-four-tools".into(), "yes".into()]);
+        assert!(parse_arguments(invalid).is_err());
+    }
 
     #[test]
     fn rejects_unknown_arguments() {

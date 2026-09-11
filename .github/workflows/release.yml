@@ -113,6 +113,17 @@ jobs:
       - name: Check Rust backend
         run: cargo check --locked --manifest-path ./src-tauri/Cargo.toml --all-targets
 
+      - name: Setup Python for Windows media fixture
+        if: runner.os == 'Windows'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Verify owned Windows toolchain and aria2 RPC
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/verify-windows-toolchain.ps1
+
       - name: Build installer
         run: npm run tauri build -- ${{ matrix.tauri-args }} --ci
 
@@ -140,6 +151,14 @@ jobs:
         with:
           name: windows-installer-report
           path: release-preflight-report.json
+          if-no-files-found: warn
+
+      - name: Upload Windows toolchain report
+        if: ${{ always() && runner.os == 'Windows' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: windows-toolchain-report
+          path: windows-toolchain-report.json
           if-no-files-found: warn
 
   publish-release:

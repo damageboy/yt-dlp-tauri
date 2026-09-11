@@ -21,7 +21,7 @@ const urls = {
 function archivePolicy() {
   return {
     enabled: true,
-    repository: "Chlience/yt-dlp-tauri-toolchain",
+    repository: "damageboy/yt-dlp-tauri",
     assetNameTemplate: "{source}-{version}-{assetStem}-{sha256Prefix}{extension}",
   };
 }
@@ -319,4 +319,32 @@ test("a changed executable digest creates a revision for the current UTC day", a
 
   assert.equal(lock.revision, "20260711.1");
   assert.equal(lock.generatedAtUtc, "2026-07-11T12:00:00.000Z");
+});
+
+
+test("pinned releases require reviewed bytes even when GitHub omits its digest", async () => {
+  const policy = fixturePolicy();
+  policy.sources = [policy.sources[0]];
+  const source = policy.sources[0];
+  source.selection = "pinned";
+  source.releaseTag = "2026.07.04";
+  source.version = "1.37.0";
+  source.assets[0].expectedSha256 = "a".repeat(64);
+  const releases = structuredClone(releasesByRepository["yt-dlp/yt-dlp"]);
+  releases[1].assets[0].sha256 = null;
+  const options = {
+    policy, now: new Date("2026-09-11T00:00:00Z"),
+    githubAdapter: async () => releases,
+    inspectAsset: async ({expectedSha256}) => {
+      assert.equal(expectedSha256, "a".repeat(64));
+      return { size: 3, sha256: "a".repeat(64), members: [{tool:"yt-dlp",size:3,sha256:"a".repeat(64)}] };
+    },
+  };
+  const result = await resolveToolchainLock(options);
+  assert.equal(result.sources[0].version, "1.37.0");
+  await assert.rejects(resolveToolchainLock({...options, inspectAsset: async () => ({size:3,sha256:"b".repeat(64),members:[]})}), /pinned.*digest/u);
+  source.releaseTag = "missing";
+  await assert.rejects(resolveToolchainLock(options), /pinned release/u);
+  delete source.assets[0].expectedSha256;
+  await assert.rejects(resolveToolchainLock(options), /expectedSha256/u);
 });

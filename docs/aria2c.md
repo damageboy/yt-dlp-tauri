@@ -110,3 +110,10 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib real_rpc_download_lifecycl
 ```
 
 The test generates disposable local media and exercises native downloading, aria2c HTTP, separate video/audio plus merge (checked with ffprobe), HLS, native fallback with aria2c enabled, unknown-length HTTP, HTTP 404, broken fragments, fragment retry recovery, cancellation and fast completion. It checks process/listener cleanup. These are backend integration tests, not a native UI test or a Windows runtime test.
+
+
+## Owned Windows distribution (2026-09-11)
+
+Windows managed mode now installs official x64 aria2 1.37.0 from the same owned release repository as yt-dlp, FFmpeg and Deno. The ZIP is mirrored unchanged, with archive and executable SHA-256 checks. Managed mode ignores custom aria2 paths and PATH; custom mode retains its existing path rules. Usage remains disabled by default.
+
+This supersedes the earlier Windows distribution limitation. Every Windows app release runs a fresh five-tool installation and the real RPC lifecycle fixture on Windows before publication. See [toolchain ownership](toolchain-ownership.md) for origins and the migration inventory.

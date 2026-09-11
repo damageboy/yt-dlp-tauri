@@ -2,7 +2,7 @@ name: Toolchain Publish
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - toolchain-lock.json
       - src-tauri/tools-manifest.json
@@ -44,7 +44,7 @@ concurrency:
 jobs:
   handoff:
     name: Resolve validated pull request bytes
-    if: ${{ github.ref == 'refs/heads/main' && inputs.rollback_revision == '' }}
+    if: ${{ github.ref == 'refs/heads/master' && inputs.rollback_revision == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -63,7 +63,7 @@ jobs:
       relay_artifact_digest: ${{ steps.relay.outputs.artifact-digest }}
 
     steps:
-      - name: Checkout exact main commit
+      - name: Checkout exact master commit
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
           ref: ${{ github.sha }}
@@ -146,7 +146,7 @@ jobs:
           });
           NODE
 
-      - name: Upload verified candidate to main run
+      - name: Upload verified candidate to master run
         id: relay
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
@@ -195,7 +195,7 @@ jobs:
 
   publish:
     name: Publish validated toolchain
-    if: ${{ always() && github.ref == 'refs/heads/main' && (needs.validation.result == 'success' || (inputs.rollback_revision != '' && inputs.skip_revalidation && needs.rollback-approval.result == 'success')) }}
+    if: ${{ always() && github.ref == 'refs/heads/master' && (needs.validation.result == 'success' || (inputs.rollback_revision != '' && inputs.skip_revalidation && needs.rollback-approval.result == 'success')) }}
     needs: [handoff, validation, rollback-approval]
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -203,7 +203,7 @@ jobs:
       contents: write
       actions: read
     env:
-      ARCHIVE_REPOSITORY: Chlience/yt-dlp-tauri-toolchain
+      ARCHIVE_REPOSITORY: damageboy/yt-dlp-tauri
       ARCHIVE_STABLE_TAG: toolchain-stable
       ROLLBACK_REVISION: ${{ inputs.rollback_revision || '' }}
       ROLLBACK_REASON: ${{ inputs.reason || '' }}
@@ -229,7 +229,7 @@ jobs:
           name: toolchain-validation-report
           path: .toolchain/validation
 
-      - name: Download verified main candidate
+      - name: Download verified master candidate
         if: ${{ inputs.rollback_revision == '' }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
@@ -245,23 +245,20 @@ jobs:
 
       - name: Check local publication prerequisites
         env:
-          CLIENT_ID: ${{ secrets.TOOLCHAIN_BOT_CLIENT_ID }}
-          APP_PRIVATE_KEY: ${{ secrets.TOOLCHAIN_BOT_PRIVATE_KEY }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           mkdir -p .toolchain/publication .toolchain/remote
-          [[ -n "$CLIENT_ID" && -n "$APP_PRIVATE_KEY" ]]
-          main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
-          if [[ "$main_sha" != "$GITHUB_SHA" ]]; then
-            git fetch --no-tags origin "$main_sha"
-            git merge-base --is-ancestor "$GITHUB_SHA" "$main_sha" || {
-              echo "Refusing non-ancestor main commit $GITHUB_SHA; current main is $main_sha" >&2
+          master_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/master" --jq '.object.sha')"
+          if [[ "$master_sha" != "$GITHUB_SHA" ]]; then
+            git fetch --no-tags origin "$master_sha"
+            git merge-base --is-ancestor "$GITHUB_SHA" "$master_sha" || {
+              echo "Refusing non-ancestor master commit $GITHUB_SHA; current master is $master_sha" >&2
               exit 1
             }
-            git diff --quiet "$GITHUB_SHA" "$main_sha" -- \
+            git diff --quiet "$GITHUB_SHA" "$master_sha" -- \
               toolchain-lock.json src-tauri/tools-manifest.json || {
-              echo "Refusing stale toolchain files from $GITHUB_SHA; current main is $main_sha" >&2
+              echo "Refusing stale toolchain files from $GITHUB_SHA; current master is $master_sha" >&2
               exit 1
             }
           fi
@@ -284,22 +281,9 @@ jobs:
             ' .toolchain/publication/rollback-environment.json > /dev/null
           fi
 
-      - name: Create archive publisher token
-        id: archive_token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
-        with:
-          client-id: ${{ secrets.TOOLCHAIN_BOT_CLIENT_ID }}
-          private-key: ${{ secrets.TOOLCHAIN_BOT_PRIVATE_KEY }}
-          owner: Chlience
-          repositories: yt-dlp-tauri-toolchain
-          permission-administration: read
-          permission-contents: write
-          permission-metadata: read
-
       - name: Check archive publication prerequisites
         env:
-          ARCHIVE_TOKEN: ${{ steps.archive_token.outputs.token }}
-          MAIN_TOKEN: ${{ github.token }}
+          ARCHIVE_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           export GH_TOKEN="$ARCHIVE_TOKEN"
@@ -308,26 +292,17 @@ jobs:
           gh api -H "X-GitHub-Api-Version: 2026-03-10" \
             "repos/${ARCHIVE_REPOSITORY}/releases/tags/${ARCHIVE_STABLE_TAG}" \
             > .toolchain/remote/stable-release.json
-          gh api -H "X-GitHub-Api-Version: 2026-03-10" \
-            "repos/${ARCHIVE_REPOSITORY}/immutable-releases" \
-            > .toolchain/remote/immutable-releases.json
           gh api --paginate --slurp -H "X-GitHub-Api-Version: 2026-03-10" \
             "repos/${ARCHIVE_REPOSITORY}/releases?per_page=100" \
             | jq 'add' > .toolchain/remote/archive-releases.json
-          GH_TOKEN="$MAIN_TOKEN" gh api -H "X-GitHub-Api-Version: 2026-03-10" \
-            "repos/${GITHUB_REPOSITORY}/releases/latest" \
-            > .toolchain/remote/application-release.json
 
           jq -e '.visibility == "public"' \
             .toolchain/remote/archive-repository.json > /dev/null
           jq -e '
             .tag_name == "toolchain-stable" and
             .draft == false and
-            .prerelease == true and
-            .immutable == true
+            .prerelease == true
           ' .toolchain/remote/stable-release.json > /dev/null
-          jq -e '.enabled == true' \
-            .toolchain/remote/immutable-releases.json > /dev/null
 
           node --input-type=module <<'NODE'
           import { readFile, writeFile } from "node:fs/promises";
@@ -357,13 +332,12 @@ jobs:
             if (revisionRelease) {
               const resumableDraft =
                 revisionRelease.draft === true &&
-                revisionRelease.prerelease === false &&
+                revisionRelease.prerelease === true &&
                 revisionRelease.immutable === false;
-              const immutablePublication =
+              const publishedRevision =
                 revisionRelease.draft === false &&
-                revisionRelease.prerelease === false &&
-                revisionRelease.immutable === true;
-              if (!resumableDraft && !immutablePublication) {
+                revisionRelease.prerelease === true;
+              if (!resumableDraft && !publishedRevision) {
                 throw new Error(
                   `Archive revision release ${tag} cannot resume publication`,
                 );
@@ -377,8 +351,7 @@ jobs:
           const historical = releases.filter(
             (release) =>
               /^toolchain-[0-9]{8}\.[1-9][0-9]*$/u.test(release.tag_name) &&
-              release.draft === false &&
-              release.immutable === true,
+              release.draft === false,
           );
           await writeFile(
             ".toolchain/remote/historical-releases.json",
@@ -416,7 +389,7 @@ jobs:
       - name: Download rollback revision metadata
         if: ${{ inputs.rollback_revision != '' }}
         env:
-          GH_TOKEN: ${{ steps.archive_token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           gh api -H "Accept: application/octet-stream" \
@@ -447,9 +420,6 @@ jobs:
             ".toolchain/remote/historical-releases.json",
           );
           const stableRelease = await readJson(".toolchain/remote/stable-release.json");
-          const applicationRelease = await readJson(
-            ".toolchain/remote/application-release.json",
-          );
           const manifestBytes = await readFile(
             ".toolchain/publication/historical-tools-manifest.json",
           );
@@ -494,10 +464,6 @@ jobs:
             dryRun: process.env.ROLLBACK_DRY_RUN === "true",
             skipRevalidation,
             stableRelease: { ...stableRelease, repository: process.env.ARCHIVE_REPOSITORY },
-            applicationRelease: {
-              ...applicationRelease,
-              repository: process.env.GITHUB_REPOSITORY,
-            },
             revisionRelease: { ...release, repository: process.env.ARCHIVE_REPOSITORY },
             historicalReleases: historicalReleases.map((item) => ({
               ...item,
@@ -546,11 +512,11 @@ jobs:
           );
           NODE
 
-      - name: Create immutable revision draft
+      - name: Create toolchain revision draft
         id: revision_draft
         if: ${{ steps.publication_plan.outputs.mode == 'publish' && steps.publication_plan.outputs.revision_state != 'published' }}
         env:
-          GH_TOKEN: ${{ steps.archive_token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.publication_plan.outputs.release_tag }}
         run: |
           set -euo pipefail
@@ -568,6 +534,7 @@ jobs:
             gh release create "$RELEASE_TAG" \
               --repo "$ARCHIVE_REPOSITORY" \
               --draft \
+              --prerelease \
               --latest=false \
               --title "Toolchain ${{ steps.publication_plan.outputs.revision }}" \
               --notes-file .toolchain/publication/release-notes.md
@@ -586,7 +553,7 @@ jobs:
       - name: Upload planned draft assets
         if: ${{ steps.publication_plan.outputs.mode == 'publish' && steps.publication_plan.outputs.revision_state != 'published' }}
         env:
-          GH_TOKEN: ${{ steps.archive_token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.publication_plan.outputs.release_tag }}
           RELEASE_ID: ${{ steps.revision_draft.outputs.release_id }}
         run: |
@@ -605,7 +572,7 @@ jobs:
       - name: Verify every draft asset
         if: ${{ steps.publication_plan.outputs.mode == 'publish' && steps.publication_plan.outputs.revision_state != 'published' }}
         env:
-          ARCHIVE_TOKEN: ${{ steps.archive_token.outputs.token }}
+          ARCHIVE_TOKEN: ${{ github.token }}
           RELEASE_ID: ${{ steps.revision_draft.outputs.release_id }}
         run: |
           GH_TOKEN="$ARCHIVE_TOKEN" gh api -H "X-GitHub-Api-Version: 2026-03-10" \
@@ -626,7 +593,7 @@ jobs:
           if (
             release.tag_name !== plan.releaseTag ||
             release.draft !== true ||
-            release.prerelease !== false ||
+            release.prerelease !== true ||
             release.immutable !== false
           ) {
             throw new Error("Revision draft identity is invalid");
@@ -666,10 +633,10 @@ jobs:
           }
           NODE
 
-      - name: Publish immutable revision
+      - name: Publish toolchain revision
         if: ${{ steps.publication_plan.outputs.mode == 'publish' && steps.publication_plan.outputs.revision_state != 'published' }}
         env:
-          GH_TOKEN: ${{ steps.archive_token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           RELEASE_ID: ${{ steps.revision_draft.outputs.release_id }}
         run: |
           release_id="$RELEASE_ID"
@@ -678,7 +645,7 @@ jobs:
           import { writeFile } from "node:fs/promises";
           await writeFile(
             ".toolchain/publication/publish-release.json",
-            `${JSON.stringify({ draft: false, prerelease: false, make_latest: "false" })}\n`,
+            `${JSON.stringify({ draft: false, prerelease: true, make_latest: "false" })}\n`,
           );
           NODE
           gh api --method PATCH -H "X-GitHub-Api-Version: 2026-03-10" \
@@ -686,10 +653,10 @@ jobs:
             --input .toolchain/publication/publish-release.json \
             > .toolchain/publication/published-release.json
 
-      - name: Verify immutable revision
+      - name: Verify published revision
         if: ${{ steps.publication_plan.outputs.mode == 'publish' }}
         env:
-          GH_TOKEN: ${{ steps.archive_token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.publication_plan.outputs.release_tag }}
         run: |
           set -euo pipefail
@@ -704,26 +671,16 @@ jobs:
           ));
           if (
             release.draft !== false ||
-            release.prerelease !== false ||
-            release.immutable !== true
+            release.prerelease !== true
           ) {
-            throw new Error("Published revision release is not immutable");
+            throw new Error("Published revision release is not a toolchain prerelease");
           }
           NODE
-          verified=false
-          for attempt in 1 2 3 4 5; do
-            if gh release verify "$RELEASE_TAG" --repo "$ARCHIVE_REPOSITORY"; then
-              verified=true
-              break
-            fi
-            sleep $((attempt * 3))
-          done
-          [[ "$verified" == "true" ]]
 
       - name: Promote stable channel
         if: ${{ steps.publication_plan.outputs.mode == 'publish' }}
         env:
-          GH_TOKEN: ${{ steps.archive_token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           node --input-type=module <<'NODE'
           import { readFile, writeFile } from "node:fs/promises";
@@ -756,7 +713,6 @@ jobs:
           const expected = plan.operations.find((item) => item.kind === "promote-channel");
           if (
             String(release.id) !== expected.releaseId ||
-            release.immutable !== true ||
             JSON.stringify(parseChannelRecord(release.body)) !== JSON.stringify(expected.channel)
           ) {
             throw new Error("Promoted archive channel differs from the publication plan");
@@ -766,7 +722,7 @@ jobs:
       - name: Promote rollback channel
         if: ${{ steps.publication_plan.outputs.mode == 'rollback' && steps.publication_plan.outputs.dry_run != 'true' }}
         env:
-          GH_TOKEN: ${{ steps.archive_token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           node --input-type=module <<'NODE'
           import { readFile, writeFile } from "node:fs/promises";
@@ -799,76 +755,10 @@ jobs:
           const expected = plan.operations.find((item) => item.kind === "promote-channel");
           if (
             String(release.id) !== expected.releaseId ||
-            release.immutable !== true ||
             JSON.stringify(parseChannelRecord(release.body)) !== JSON.stringify(expected.channel)
           ) {
             throw new Error("Promoted rollback channel differs from the validated plan");
           }
-          NODE
-
-      - name: Update v0.1.11 compatibility
-        if: ${{ steps.publication_plan.outputs.mode == 'publish' || (steps.publication_plan.outputs.mode == 'rollback' && steps.publication_plan.outputs.dry_run != 'true') }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          release_tag="$(jq -r '.operations[] | select(.kind == "legacy-manifest") | .applicationReleaseTag' .toolchain/publication/publication-plan.json)"
-          manifest_path="$(jq -r 'if .mode == "publish" then (.operations[] | select(.kind == "legacy-manifest") | .path) else ".toolchain/publication/historical-tools-manifest.json" end' .toolchain/publication/publication-plan.json)"
-          compatibility_path=".toolchain/publication/compatibility/tools-manifest.json"
-          mkdir -p "$(dirname "$compatibility_path")"
-          cp "$manifest_path" "$compatibility_path"
-          gh release upload "$release_tag" \
-            "$compatibility_path" \
-            --clobber --repo "$GITHUB_REPOSITORY"
-          gh api "repos/${GITHUB_REPOSITORY}/releases/latest" \
-            > .toolchain/publication/application-release-after-upload.json
-          node --input-type=module <<'NODE'
-          import { createHash } from "node:crypto";
-          import { readFile } from "node:fs/promises";
-          import { verifyUploadedAsset } from "./scripts/publish-toolchain.mjs";
-          const plan = JSON.parse(await readFile(
-            ".toolchain/publication/publication-plan.json",
-            "utf8",
-          ));
-          const operation = plan.operations.find((item) => item.kind === "legacy-manifest");
-          const release = JSON.parse(await readFile(
-            ".toolchain/publication/application-release-after-upload.json",
-            "utf8",
-          ));
-          if (
-            String(release.id) !== operation.applicationReleaseId ||
-            release.tag_name !== operation.applicationReleaseTag
-          ) {
-            throw new Error("Latest application release changed during publication");
-          }
-          const matches = release.assets.filter((asset) => asset.name === "tools-manifest.json");
-          if (matches.length !== 1) throw new Error("Compatibility manifest is ambiguous");
-          const response = await fetch(matches[0].url, {
-            headers: {
-              Accept: "application/octet-stream",
-              Authorization: `Bearer ${process.env.GH_TOKEN}`,
-              "User-Agent": "yt-dlp-tauri-compatibility-verifier",
-            },
-            redirect: "follow",
-          });
-          if (!response.ok || !response.body) {
-            throw new Error(`Compatibility manifest download failed: ${response.status}`);
-          }
-          const hash = createHash("sha256");
-          let size = 0;
-          for await (const chunk of response.body) {
-            hash.update(chunk);
-            size += chunk.length;
-          }
-          verifyUploadedAsset(
-            {
-              ...matches[0],
-              name: "tools-manifest.json",
-              size,
-              sha256: hash.digest("hex"),
-            },
-            { ...operation.manifestSource, name: "tools-manifest.json" },
-          );
           NODE
 
       - name: Record rollback decision

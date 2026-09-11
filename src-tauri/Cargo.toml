@@ -5,7 +5,7 @@ version = "0.1.13"
 description = "A minimal Tauri desktop downloader powered by yt-dlp"
 authors = ["Chlie"]
 license = "GPL-3.0-only"
-repository = "https://github.com/Chlience/yt-dlp-tauri"
+repository = "https://github.com/damageboy/yt-dlp-tauri"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

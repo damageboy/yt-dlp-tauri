@@ -126,6 +126,11 @@ function selectRelease(source, releases, now) {
   if (source.selection === "previous-complete-month") {
     return selectPreviousCompleteMonth(releases, now);
   }
+  if (source.selection === "pinned") {
+    const matches = releases.filter((release) => release.tagName === source.releaseTag && !release.draft && !release.prerelease);
+    if (matches.length !== 1) throw new Error(`${source.id} requires exactly one published pinned release ${source.releaseTag}`);
+    return matches[0];
+  }
   throw new Error(`Unsupported GitHub release selection for ${source.id}: ${source.selection}`);
 }
 
@@ -246,8 +251,12 @@ async function resolveGitHubSource({
     }
     requireSize(releaseAsset.size, `${source.id} upstream asset size`);
 
+    const expectedSha256 = source.selection === "pinned" ? assetPolicy.expectedSha256 : releaseAsset.sha256;
+    if (releaseAsset.sha256 && expectedSha256 !== releaseAsset.sha256) {
+      throw new Error(`${source.id} upstream digest differs from pinned asset digest`);
+    }
     const inspected = await inspect(sourceUrl, assetPolicy, {
-      sha256: releaseAsset.sha256,
+      sha256: expectedSha256,
       size: releaseAsset.size,
     });
     requireSize(inspected.size, `${source.id} downloaded asset size`);
@@ -255,8 +264,8 @@ async function resolveGitHubSource({
     if (inspected.size !== releaseAsset.size) {
       throw new Error(`${source.id} asset ${releaseAsset.name} changed size during inspection`);
     }
-    if (releaseAsset.sha256 && digest !== releaseAsset.sha256) {
-      throw new Error(`${source.id} asset ${releaseAsset.name} changed digest during inspection`);
+    if (expectedSha256 && digest !== expectedSha256) {
+      throw new Error(`${source.id} asset ${releaseAsset.name} changed pinned or upstream digest during inspection`);
     }
 
     assets.push({
@@ -280,7 +289,7 @@ async function resolveGitHubSource({
     adapter: source.adapter,
     selection: source.selection,
     repository: source.repository,
-    version: release.tagName,
+    version: source.version ?? release.tagName,
     assets: assets.sort(assetComparator),
   };
 }

@@ -68,7 +68,7 @@ function addArchiveUrl(urls, tool, manifest, issue, label) {
     issue(`${label} has an invalid archive URL: ${value}`);
     return;
   }
-  const prefix = "/Chlience/yt-dlp-tauri-toolchain/releases/download/";
+  const prefix = "/damageboy/yt-dlp-tauri/releases/download/";
   const sourcePath = parsed.pathname.startsWith(prefix)
     ? parsed.pathname.slice(prefix.length)
     : "";

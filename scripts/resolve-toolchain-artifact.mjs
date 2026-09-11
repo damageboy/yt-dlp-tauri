@@ -14,7 +14,7 @@ const DEFAULTS = {
   repository: "",
   repositoryId: "",
   commitSha: "",
-  baseRef: "main",
+  baseRef: "master",
   workflowPath: ".github/workflows/toolchain-validate.yml",
   lockPath: "toolchain-lock.json",
   outputPath: ".toolchain/handoff/handoff-report.json",
@@ -154,7 +154,6 @@ export async function resolveToolchainArtifact({
     );
   }
   const runsPath = new URLSearchParams({
-    event: "pull_request",
     branch: pullRequest.head.ref,
     head_sha: pullRequest.head.sha,
     status: "completed",

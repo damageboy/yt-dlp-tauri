@@ -12,7 +12,7 @@ import {
 
 const DIGEST_A = "a".repeat(64);
 const DIGEST_B = "b".repeat(64);
-const ARCHIVE_REPOSITORY = "Chlience/yt-dlp-tauri-toolchain";
+const ARCHIVE_REPOSITORY = "damageboy/yt-dlp-tauri";
 const ASSET_NAME_TEMPLATE =
   "{source}-{version}-{assetStem}-{sha256Prefix}{extension}";
 
@@ -187,7 +187,7 @@ test("archive descriptors require exact repository, size, and digest", () => {
   );
   assert.equal(
     archiveDescriptorUrl(descriptor),
-    "https://github.com/Chlience/yt-dlp-tauri-toolchain/releases/download/toolchain-20260712.1/yt-dlp-2026.07.04-yt-dlp-aaaaaaaaaaaaaaaa.exe",
+    "https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-20260712.1/yt-dlp-2026.07.04-yt-dlp-aaaaaaaaaaaaaaaa.exe",
   );
 });
 

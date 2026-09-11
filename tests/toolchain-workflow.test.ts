@@ -4,31 +4,26 @@ import test from "node:test";
 
 const CHECKOUT_SHA = "93cb6efe18208431cddfb8368fd83d5badbf9bfd";
 const SETUP_NODE_SHA = "a0853c24544627f65ddf259abe73b1d18a591444";
-const APP_TOKEN_SHA = "bcd2ba49218906704ab6c1aa796996da409d3eb1";
 const RUST_TOOLCHAIN_SHA = "4be7066ada62dd38de10e7b70166bc74ed198c30";
 const RUST_CACHE_SHA = "42dc69e1aa15d09112580998cf2ef0119e2e91ae";
 const UPLOAD_ARTIFACT_SHA = "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a";
 const DOWNLOAD_ARTIFACT_SHA = "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c";
 
-test("weekly workflow uses a GitHub App and one managed branch", () => {
+test("weekly workflow uses repository authentication and one managed branch", () => {
   const workflow = readFileSync(".github/workflows/toolchain-discover.yml", "utf8");
 
   assert.match(workflow, /^name: Toolchain Discovery$/m);
   assert.match(workflow, /cron: "17 3 \* \* 1"/);
   assert.match(workflow, new RegExp(`actions/checkout@${CHECKOUT_SHA}`));
   assert.match(workflow, new RegExp(`actions/setup-node@${SETUP_NODE_SHA}`));
-  assert.match(
-    workflow,
-    new RegExp(`actions/create-github-app-token@${APP_TOKEN_SHA}`),
-  );
-  assert.match(workflow, /TOOLCHAIN_BOT_CLIENT_ID/);
-  assert.match(workflow, /TOOLCHAIN_BOT_PRIVATE_KEY/);
+  assert.doesNotMatch(workflow, /create-github-app-token|TOOLCHAIN_BOT/u);
   assert.match(workflow, /bot\/toolchain-weekly/);
   assert.match(workflow, /node scripts\/update-toolchain\.mjs/);
   assert.match(workflow, /npm test/);
   assert.match(workflow, /npm run build/);
   assert.match(workflow, /check-tool-source-urls\.mjs --source-mode upstream/);
   assert.match(workflow, /gh pr (create|edit)/);
+  assert.match(workflow, /gh workflow run toolchain-validate\.yml.*-f pull_request=/u);
 });
 
 test("freshness workflow creates focused emergency pull requests", () => {
@@ -41,8 +36,9 @@ test("freshness workflow creates focused emergency pull requests", () => {
   assert.match(workflow, /--json-output/);
   assert.match(workflow, /--only "\$\{\{ matrix\.source \}\}"/);
   assert.match(workflow, /bot\/toolchain-emergency-/);
-  assert.match(workflow, new RegExp(`actions/create-github-app-token@${APP_TOKEN_SHA}`));
+  assert.match(workflow, /github\.token/u);
   assert.match(workflow, /gh pr (create|edit)/);
+  assert.match(workflow, /gh workflow run toolchain-validate\.yml.*-f pull_request=/u);
 });
 
 test("toolchain automation pins every third-party action to a commit", () => {
@@ -62,13 +58,13 @@ test("toolchain automation pins every third-party action to a commit", () => {
   }
 });
 
-test("publisher tolerates unrelated main advances without accepting stale toolchains", () => {
+test("publisher tolerates unrelated master advances without accepting stale toolchains", () => {
   const path = ".github/workflows/toolchain-publish.yml";
   assert.equal(existsSync(path), true);
   const workflow = readFileSync(path, "utf8");
 
   assert.match(workflow, /^name: Toolchain Publish$/m);
-  assert.match(workflow, /push:\s*\n\s*branches:\s*\[main\]/u);
+  assert.match(workflow, /push:\s*\n\s*branches:\s*\[master\]/u);
   assert.match(workflow, /paths:\s*\n\s*- toolchain-lock\.json\s*\n\s*- src-tauri\/tools-manifest\.json/u);
   assert.match(workflow, /workflow_dispatch:/u);
   assert.match(workflow, /candidate_commit:\s*\n\s*description:/u);
@@ -77,64 +73,50 @@ test("publisher tolerates unrelated main advances without accepting stale toolch
   assert.match(workflow, /^permissions:\s*\n\s*contents: read$/mu);
   assert.match(workflow, /uses: \.\/\.github\/workflows\/toolchain-validate\.yml/u);
   assert.match(workflow, /publish:\s*\n\s*name: Publish validated toolchain[\s\S]*?permissions:\s*\n\s*contents: write/u);
-  assert.match(workflow, /github\.ref == 'refs\/heads\/main'/u);
+  assert.match(workflow, /github\.ref == 'refs\/heads\/master'/u);
   assert.match(workflow, /node scripts\/resolve-toolchain-artifact\.mjs/u);
   assert.match(workflow, /--commit-sha "\$CANDIDATE_COMMIT"/u);
   assert.match(
     workflow,
     /publication_commit_sha: \$\{\{ inputs\.candidate_commit \|\| github\.sha \}\}/u,
   );
-  assert.match(workflow, /git\/ref\/heads\/main/u);
-  assert.match(workflow, /git merge-base --is-ancestor "\$GITHUB_SHA" "\$main_sha"/u);
+  assert.match(workflow, /git\/ref\/heads\/master/u);
+  assert.match(workflow, /git merge-base --is-ancestor "\$GITHUB_SHA" "\$master_sha"/u);
   assert.match(
     workflow,
-    /git diff --quiet "\$GITHUB_SHA" "\$main_sha" --[\s\\]+toolchain-lock\.json src-tauri\/tools-manifest\.json/u,
+    /git diff --quiet "\$GITHUB_SHA" "\$master_sha" --[\s\\]+toolchain-lock\.json src-tauri\/tools-manifest\.json/u,
   );
   assert.match(workflow, /toolchain-validation-report/u);
   assert.match(workflow, /node scripts\/publish-toolchain\.mjs[\s\\]+--input/u);
-  assert.match(workflow, /Chlience\/yt-dlp-tauri-toolchain/u);
+  assert.match(workflow, /damageboy\/yt-dlp-tauri/u);
   assert.match(workflow, /toolchain-stable/u);
-  assert.match(workflow, /releases\/latest/u);
-  assert.match(
-    workflow,
-    /compatibility\/tools-manifest\.json"[\s\S]*?--clobber/u,
-  );
+  assert.doesNotMatch(workflow, /releases\/latest|--clobber/u);
   assert.doesNotMatch(workflow, /#tools-manifest\.json/u);
   assert.doesNotMatch(workflow, /toolchain-mirror-candidates/u);
 
   const upload = workflow.indexOf("Upload planned draft assets");
   const verify = workflow.indexOf("Verify every draft asset");
-  const immutable = workflow.indexOf("Verify immutable revision");
+  const immutable = workflow.indexOf("Verify published revision");
   const promote = workflow.indexOf("Promote stable channel");
-  const compatibility = workflow.indexOf("Update v0.1.11 compatibility");
   assert.ok(
     upload >= 0 &&
       verify > upload &&
       immutable > verify &&
-      promote > immutable &&
-      compatibility > promote,
+      promote > immutable,
   );
 });
 
-test("publisher scopes App authentication and gates every archive mutation", () => {
+test("publisher scopes repository authentication and gates every archive mutation", () => {
   const workflow = readFileSync(".github/workflows/toolchain-publish.yml", "utf8");
 
-  assert.match(workflow, new RegExp(`actions/create-github-app-token@${APP_TOKEN_SHA}`));
-  assert.match(workflow, /owner:\s*Chlience/u);
-  assert.match(workflow, /repositories:\s*yt-dlp-tauri-toolchain/u);
-  assert.match(workflow, /TOOLCHAIN_BOT_CLIENT_ID/u);
-  assert.match(workflow, /TOOLCHAIN_BOT_PRIVATE_KEY/u);
-  assert.match(workflow, /repos\/\$\{ARCHIVE_REPOSITORY\}\/immutable-releases/u);
+  assert.match(workflow, /github\.token/u);
   assert.match(workflow, /X-GitHub-Api-Version:\s*2026-03-10/u);
-  assert.match(workflow, /\.enabled == true/u);
   assert.match(workflow, /\.visibility == "public"/u);
-  assert.match(workflow, /\.immutable == true/u);
 
   const localGate = workflow.indexOf("Check local publication prerequisites");
-  const token = workflow.indexOf("Create archive publisher token");
   const remoteGate = workflow.indexOf("Check archive publication prerequisites");
-  const draft = workflow.indexOf("Create immutable revision draft");
-  assert.ok(localGate >= 0 && token > localGate && remoteGate > token && draft > remoteGate);
+  const draft = workflow.indexOf("Create toolchain revision draft");
+  assert.ok(localGate >= 0 && remoteGate > localGate && draft > remoteGate);
 });
 
 test("publisher verifies draft bytes and immutable release attestation before promotion", () => {
@@ -142,10 +124,10 @@ test("publisher verifies draft bytes and immutable release attestation before pr
 
   assert.match(workflow, /--draft/u);
   const createDraft = workflow.slice(
-    workflow.indexOf("Create immutable revision draft"),
+    workflow.indexOf("Create toolchain revision draft"),
     workflow.indexOf("Upload planned draft assets"),
   );
-  assert.doesNotMatch(createDraft, /--prerelease/u);
+  assert.match(createDraft, /--prerelease/u);
   assert.match(workflow, /--latest=false/u);
   assert.match(workflow, /verifyUploadedAsset/u);
   assert.match(workflow, /id: revision_draft/u);
@@ -161,12 +143,8 @@ test("publisher verifies draft bytes and immutable release attestation before pr
     /steps\.publication_plan\.outputs\.revision_state != 'published'/u,
   );
   assert.match(workflow, /draft:\s*false/u);
-  assert.match(workflow, /release\.prerelease !== false/u);
-  assert.match(workflow, /\.immutable !== true/u);
-  assert.match(
-    workflow,
-    /gh release verify "\$RELEASE_TAG" --repo "\$ARCHIVE_REPOSITORY"/u,
-  );
+  assert.match(workflow, /release\.prerelease !== true/u);
+  assert.doesNotMatch(workflow, /\.immutable !== true/u);
   const draftUploads = workflow.slice(
     workflow.indexOf("Upload planned draft assets"),
     workflow.indexOf("Verify every draft asset"),
@@ -175,7 +153,7 @@ test("publisher verifies draft bytes and immutable release attestation before pr
   assert.doesNotMatch(draftUploads, /\$path#\$name/u);
 });
 
-test("main handoff revalidates one exact pull request candidate artifact", () => {
+test("master handoff revalidates one exact pull request candidate artifact", () => {
   const workflow = readFileSync(".github/workflows/toolchain-publish.yml", "utf8");
 
   assert.match(
@@ -216,7 +194,7 @@ test("rollback revalidates historical revisions unless a protected environment a
   assert.match(publisher, /Promote rollback channel/u);
   assert.match(publisher, /Promoted rollback channel differs from the validated plan/u);
   assert.match(publisher, /Record rollback decision/u);
-  assert.match(publisher, /application-release-after-upload\.json/u);
+  assert.doesNotMatch(publisher, /application-release-after-upload\.json/u);
   assert.match(publisher, /steps\.publication_plan\.outputs\.dry_run != 'true'/u);
 
   assert.match(validation, /workflow_call:\s*\n\s*inputs:\s*\n\s*rollback_revision:/u);
@@ -289,6 +267,9 @@ test("validation workflow runs baseline first and diagnoses source units", () =>
   assert.match(workflow, /Diagnostic FFmpeg/);
   assert.match(workflow, /candidate_smoke\.outcome != 'success'/);
   assert.match(workflow, /Infrastructure baseline failed/);
+  assert.equal(workflow.match(/--allow-legacy-four-tools true/g)?.length, 1);
+  assert.match(workflow, /--manifest \.toolchain\/manifests\/baseline\.json[\s\\]+--allow-legacy-four-tools true/u);
+  assert.match(workflow, /rebindMigratedBaseline/u);
   assert.match(workflow, /Candidate public-site Canary/);
   assert.match(workflow, /toolchain-canary\.json/);
   assert.match(workflow, /blocking: false/);
@@ -344,8 +325,22 @@ test("stable consumers resolve the archive channel and revision release", () => 
     ".github/workflows/toolchain-validate.yml",
   ]) {
     const workflow = readFileSync(path, "utf8");
-    assert.match(workflow, /Chlience\/yt-dlp-tauri-toolchain/u);
+    assert.match(workflow, /damageboy\/yt-dlp-tauri/u);
     assert.match(workflow, /releaseTag/u);
-    assert.match(workflow, /immutable/u);
+    assert.match(workflow, /damageboy\/yt-dlp-tauri/u);
   }
+});
+
+test("diagnostic manifests retain candidate additions while isolating source changes", () => {
+  const workflow = readFileSync(".github/workflows/toolchain-validate.yml", "utf8");
+  const start = workflow.indexOf("const targets = candidateManifest.targets.map");
+  const end = workflow.indexOf('writeJson(`.toolchain/manifests/diagnostic-', start);
+  assert.ok(start >= 0 && end > start);
+  const buildTargets = new Function("candidateManifest", "baselineManifest", "names", `${workflow.slice(start, end)}; return targets;`);
+  const baseline = {targets:[{target:"win-x64",tools:["yt-dlp","ffmpeg","ffprobe","deno"].map(name=>({name,version:"baseline"}))}]};
+  const candidate = {targets:[{target:"win-x64",tools:["yt-dlp","ffmpeg","ffprobe","deno","aria2c"].map(name=>({name,version:"candidate"}))}]};
+  const tools = buildTargets(candidate,baseline,new Set(["yt-dlp"]))[0].tools;
+  assert.equal(tools.length,5);
+  assert.deepEqual(tools.filter(tool=>tool.version === "candidate").map(tool=>tool.name),["yt-dlp","aria2c"]);
+  assert.deepEqual(tools.filter(tool=>tool.version === "baseline").map(tool=>tool.name),["ffmpeg","ffprobe","deno"]);
 });

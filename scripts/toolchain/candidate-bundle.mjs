@@ -121,7 +121,7 @@ export function candidateAssetsForRevision(lockValue) {
     }
     for (const asset of source.assets) {
       const archive = validateArchiveDescriptor(asset.archive, {
-        repository: "Chlience/yt-dlp-tauri-toolchain",
+        repository: "damageboy/yt-dlp-tauri",
         size: asset.size,
         sha256: asset.sha256,
       });

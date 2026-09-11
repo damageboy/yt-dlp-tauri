@@ -20,7 +20,7 @@ function policyFixture() {
       id: source.id,
       archive: {
         enabled: true,
-        repository: "Chlience/yt-dlp-tauri-toolchain",
+        repository: "damageboy/yt-dlp-tauri",
         assetNameTemplate:
           "{source}-{version}-{assetStem}-{sha256Prefix}{extension}",
       },
@@ -47,7 +47,7 @@ test("manifest generation uses extracted hashes and fixed source URLs", () => {
       assert.doesNotMatch(tool.sourceUrl, /\/latest\//);
       assert.match(
         tool.sourceUrl,
-        /^https:\/\/github\.com\/Chlience\/yt-dlp-tauri-toolchain\/releases\/download\/toolchain-/u,
+        /^https:\/\/github\.com\/damageboy\/yt-dlp-tauri\/releases\/download\/toolchain-/u,
       );
       assert.ok(tool.sourceSize > 0);
       assert.match(tool.sourceSha256, /^[a-f0-9]{64}$/);
@@ -89,7 +89,7 @@ test("candidate mode uses upstream only for assets assigned to its revision", ()
   assert.equal(candidateFfmpeg.sourceUrl, ffmpegSource.assets[0].sourceUrl);
   assert.equal(
     candidateYtDlp.sourceUrl,
-    "https://github.com/Chlience/yt-dlp-tauri-toolchain/releases/download/toolchain-20260709.1/yt-dlp-2026.07.04-yt-dlp-aaaaaaaaaaaaaaaa.exe",
+    "https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-20260709.1/yt-dlp-2026.07.04-yt-dlp-aaaaaaaaaaaaaaaa.exe",
   );
 });
 

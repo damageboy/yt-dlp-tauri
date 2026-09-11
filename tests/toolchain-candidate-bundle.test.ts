@@ -21,7 +21,7 @@ import { parseVerifyCandidateArgs } from "../scripts/verify-toolchain-candidate.
 
 const REVISION = "20260712.1";
 const RELEASE_TAG = `toolchain-${REVISION}`;
-const REPOSITORY = "Chlience/yt-dlp-tauri-toolchain";
+const REPOSITORY = "damageboy/yt-dlp-tauri";
 
 function sha256(bytes: Uint8Array | string) {
   return createHash("sha256").update(bytes).digest("hex");

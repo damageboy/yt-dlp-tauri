@@ -1,6 +1,6 @@
 # FFmpeg Redistribution Procedure
 
-This procedure applies when `yt-dlp-tauri` republishes the Windows GPL FFmpeg archive selected by `ffmpeg-windows` in `toolchain-lock.json`. Direct installation from the approved upstream URL does not create a project mirror and remains the default fallback.
+This procedure applies when `yt-dlp-tauri` republishes the Windows GPL FFmpeg archive selected by `ffmpeg-windows` in `toolchain-lock.json`. Runtime installation uses only the owned repository archive; it never falls back to the original app maintainer or a third-party build host.
 
 ## Required Evidence
 
@@ -29,10 +29,10 @@ The Windows native validation job performs these steps:
 
 The provenance JSON records immutable commit and archive URLs. Before publishing a binary mirror, the release must also provide the corresponding FFmpeg source and build-script archives, or another durable method reviewed for the same GPL obligations. Source archives must be identified by the full commits in the provenance record.
 
-## Publication And Fallback
+## Publication
 
-Mirror filenames include the monotonic toolchain revision and are never overwritten. The publisher verifies every uploaded byte from its final GitHub Release URL before promotion.
+Mirror filenames include the source version and archive digest and are never overwritten. The publisher verifies every uploaded byte from its final GitHub Release URL before promotion.
 
-When evidence or corresponding-source material is incomplete, the publisher skips the mirror and leaves the approved upstream FFmpeg URL in the manifest. A missing mirror must not block an otherwise compatible toolchain revision.
+When evidence or corresponding-source material is incomplete, publication stops. Runtime manifests never substitute an upstream FFmpeg URL for a missing owned mirror.
 
 This automated gate preserves compliance evidence and prevents accidental redistribution without the required records. It does not replace legal review of a particular FFmpeg build, enabled codec set, or distribution method.

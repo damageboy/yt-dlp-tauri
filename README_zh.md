@@ -40,7 +40,7 @@
 - 为需要登录态的站点选择 Cookie 文件，支持 Netscape `cookies.txt` 和一行浏览器 Cookie 请求头。
 - 在 Settings 中安装、更新、重新安装和校验受管工具：Windows 使用项目托管归档，macOS 使用已有的 Homebrew 安装。
 - 可在受管工具与可信自定义工具之间切换，自定义工具支持从平台搜索路径检测或使用绝对路径选择。
-- 从项目托管的不可变 GitHub Release 资产解析 Windows stable 工具链。
+- 从本项目托管并固定哈希的 GitHub Release 资产解析 Windows stable 工具链。
 - 完整 staging 并校验所有 Windows 归档工具后再原子激活，更新失败时保留当前可用 revision。
 - 支持中英文界面切换。
 - 检查 GitHub Releases 中的应用更新，并可为更新检查和 release 链接启用 `gh-proxy`。
@@ -139,7 +139,7 @@ src-tauri\target\release\bundle\nsis\
 | 项 | 用途 |
 | --- | --- |
 | `toolchain-policy.json` | 经审核的上游来源、版本选择规则、target 和允许访问的 host。 |
-| `toolchain-lock.json` | 自动生成的上游身份、不可变归档描述，以及归档和可执行文件 SHA-256。 |
+| `toolchain-lock.json` | 自动生成的上游身份、固定哈希的归档描述，以及归档和可执行文件 SHA-256。 |
 | `src-tauri/tools-manifest.json` | 自动生成的运行时 revision、项目托管归档 URL、target 和可执行文件哈希。 |
 | `TOOLCHAIN_CHANGELOG.md` | 独立于应用 release 的工具版本历史。 |
 | `src-tauri/tauri.conf.json` | Tauri 应用元信息、固定窗口尺寸、bundle target、图标和资源。 |
@@ -166,9 +166,9 @@ Custom 模式接受无扩展名的 `yt-dlp` 和 `deno` 可执行文件绝对路�
 
 ## 必需的 aria2c 工具，可选的下载方式
 
-即使关闭下载时使用 aria2c，它仍是必需工具。在 macOS 上，**设置 → 工具链** 会通过 Homebrew 安装、验证、更新和重新安装 `aria2` formula。自定义配置和当前 Windows 归档需要在 PATH 中提供可用的 `aria2c`/`aria2c.exe`，或显式选择可执行文件。在 **设置 → 工具链** 中打开 **使用 aria2c**，将 **并行度** 设为 1 到 16 的整数，再点击 **保存**。默认禁用，并行度默认为 16。
+即使关闭下载时使用 aria2c，它仍是必需工具。在 macOS 上，**设置 → 工具链** 会通过 Homebrew 安装、验证、更新和重新安装 `aria2` formula。Windows 托管模式会随其他四个工具一起安装固定版本的 x64 `aria2c.exe`。自定义配置需要在 PATH 中提供可用的可执行文件，或显式选择路径。在 **设置 → 工具链** 中打开 **使用 aria2c**，将 **并行度** 设为 1 到 16 的整数，再点击 **保存**。默认禁用，并行度默认为 16。
 
-Homebrew 模式直接使用其管理的可执行文件。自定义工具路径中包含 aria2c；选择文件后立即保存，共用的 **使用 PATH** 会清除显式路径。自定义查找顺序为：所选绝对路径、PATH、macOS Homebrew 路径（包括自定义 Homebrew 前缀）。**验证工具** 显示版本或具体错误。所选文件失效时不会静默改用其他安装；即使文件消失，也可以保存禁用设置，但必须恢复或重新配置 aria2c 后，工具链才算完整。
+Windows 托管模式和 Homebrew 模式直接使用其管理的可执行文件。自定义工具路径中包含 aria2c；选择文件后立即保存，共用的 **使用 PATH** 会清除显式路径。自定义查找顺序为：所选绝对路径、PATH、macOS Homebrew 路径（包括自定义 Homebrew 前缀）。**验证工具** 显示版本或具体错误。所选文件失效时不会静默改用其他安装；即使文件消失，也可以保存禁用设置，但必须恢复或重新配置 aria2c 后，工具链才算完整。
 
 并行度 N 生成 `--downloader <绝对路径> --downloader-args "aria2c:-j N -x N -s N"`，分别设置并发任务数、每个任务连接同一服务器的连接数和分片数。N 不是总连接数上限，也不是同时下载的视频数量。yt-dlp 根据协议选择下载器，某些格式仍使用原生下载器。没有数值进度时显示不确定进度条。
 
@@ -178,7 +178,7 @@ Homebrew 模式直接使用其管理的可执行文件。自定义工具路径�
 
 `Toolchain Discovery` workflow 每周解析一次 yt-dlp、Deno、FFmpeg 和 FFprobe，并维护一个经人工审核的 `bot/toolchain-weekly` PR。`Toolchain Freshness` 每天检查已发布的来源 URL，并为失效来源创建独立的紧急 PR。所有变更都需要维护者审核后合并。
 
-工具链变更合并后会先通过原生验证，再发布到独立的 `yt-dlp-tauri-toolchain` 归档仓库。应用跟随 `toolchain-stable` 通道，`TOOLCHAIN_CHANGELOG.md` 独立记录工具 revision，不要求应用同步发版。
+工具链变更合并后会先通过原生验证，再发布到本仓库 `damageboy/yt-dlp-tauri` 的 `toolchain-*` 预发布版本。应用跟随 `toolchain-stable` 通道，`TOOLCHAIN_CHANGELOG.md` 独立记录工具 revision，不要求应用同步发版。
 
 可以在本地只查看统一解析结果，不修改文件：
 
@@ -274,11 +274,11 @@ npm run tauri build
 
 ## 星标历史
 
-<a href="https://star-history.dera.page/#Chlience/yt-dlp-tauri&type=date&legend=top-left">
+<a href="https://star-history.dera.page/#damageboy/yt-dlp-tauri&type=date&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=Chlience/yt-dlp-tauri&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=Chlience/yt-dlp-tauri&type=date&legend=top-left" />
-   <img alt="星标历史图" src="https://star-history.dera.page/svg?repos=Chlience/yt-dlp-tauri&type=date&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=damageboy/yt-dlp-tauri&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=damageboy/yt-dlp-tauri&type=date&legend=top-left" />
+   <img alt="星标历史图" src="https://star-history.dera.page/svg?repos=damageboy/yt-dlp-tauri&type=date&legend=top-left" />
  </picture>
 </a>
 
@@ -299,3 +299,5 @@ npm run tauri build
 本项目使用 GPL-3.0 许可证。应用会下载并使用第三方命令行工具，这些工具有各自的许可证和再分发义务。详见 [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md)。
 
 本项目不隶属于 `yt-dlp`、FFmpeg、Deno 或 Tauri。
+
+Windows 托管工具链现已包含官方 x64 aria2 1.37.0，全部工具下载和稳定通道均由本仓库托管。详见 [工具链来源及迁移记录](docs/toolchain-ownership.md)。

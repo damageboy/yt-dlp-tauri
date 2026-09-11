@@ -1,0 +1,242 @@
+{
+  "schemaVersion": 1,
+  "sourceRepository": "Chlience/yt-dlp-tauri-toolchain",
+  "repository": "damageboy/yt-dlp-tauri",
+  "migratedAtUtc": "2026-09-11",
+  "releases": [
+    {
+      "tag": "toolchain-20260712.1",
+      "sourceReleaseId": 352760550,
+      "assets": [
+        {
+          "name": "deno-v2.9.2-deno-x86_64-pc-windows-msvc-5fe194d26ac5ef77.zip",
+          "size": 42721120,
+          "sha256": "5fe194d26ac5ef77fcc5288c2c438c7a0465f3b6180440ebf04092714bf2dcdf"
+        },
+        {
+          "name": "ffmpeg-redistribution.md",
+          "size": 2847,
+          "sha256": "99071d3b87133944b78702d01c6da02d7cb9d9004f8a59f5e5f4e738c2d4eaf3"
+        },
+        {
+          "name": "ffmpeg-windows-autobuild-2026-06-30-16-38-ffmpeg-N-125365-g9a01c1cb6a-win64-gpl-99502f28cb80ab01.zip",
+          "size": 167300768,
+          "sha256": "99502f28cb80ab012746e1545463abe061375072c81f500ac5286da11beb00f7"
+        },
+        {
+          "name": "LICENSE",
+          "size": 35149,
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        },
+        {
+          "name": "LICENSE.md",
+          "size": 1074,
+          "sha256": "f62497fffecc0852960c8d3e6934b9db86d16396e9b604072e923892cae3a588"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.md",
+          "size": 2320,
+          "sha256": "538f3800041476b1172399d6a256698429961dff56cae53b6f0386271a95f739"
+        },
+        {
+          "name": "toolchain-checksums-20260712.1.txt",
+          "size": 1143,
+          "sha256": "9cb1ab322d9ad5adf2934a880283c5cb20893966936c941bf979f50fb86a7ff7"
+        },
+        {
+          "name": "toolchain-compliance-20260712.1.json",
+          "size": 3655,
+          "sha256": "8c5401c7afcfab182be92fd243cfc066e470415a67b0ea28195e6b3fc35edf54"
+        },
+        {
+          "name": "toolchain-provenance-20260712.1.json",
+          "size": 4143,
+          "sha256": "b0a0ecca4ef6c3037c450c4564dc3c3c588412d8ac6d73451219fa3a4fb99bb5"
+        },
+        {
+          "name": "toolchain-validation-20260712.1.json",
+          "size": 4031,
+          "sha256": "ad3fce50fb753809776e664e81082b74fc80fbeba7fa3d3c80c46dac2ca2ba54"
+        },
+        {
+          "name": "tools-manifest-20260712.1.json",
+          "size": 3121,
+          "sha256": "8a7bf84a463ecce906f7df5f6c4cf122ba8b3f185fc129f106d0f46274398ff9"
+        },
+        {
+          "name": "yt-dlp-2026.07.04-yt-dlp-52fe3c26dcf71fbd.exe",
+          "size": 18226085,
+          "sha256": "52fe3c26dcf71fbdc85b528589020bb0b8e383155cfa81b64dd447bbe35e24b8"
+        }
+      ]
+    },
+    {
+      "tag": "toolchain-20260712.2",
+      "sourceReleaseId": 352767635,
+      "assets": [
+        {
+          "name": "ffmpeg-redistribution.md",
+          "size": 2847,
+          "sha256": "99071d3b87133944b78702d01c6da02d7cb9d9004f8a59f5e5f4e738c2d4eaf3"
+        },
+        {
+          "name": "LICENSE",
+          "size": 35149,
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        },
+        {
+          "name": "LICENSE.md",
+          "size": 1074,
+          "sha256": "f62497fffecc0852960c8d3e6934b9db86d16396e9b604072e923892cae3a588"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.md",
+          "size": 2320,
+          "sha256": "538f3800041476b1172399d6a256698429961dff56cae53b6f0386271a95f739"
+        },
+        {
+          "name": "toolchain-checksums-20260712.2.txt",
+          "size": 737,
+          "sha256": "f2cf1f30d4c7a8bf742498ad871e1783e03f650c12db82535cd6122ee05ca4af"
+        },
+        {
+          "name": "toolchain-compliance-20260712.2.json",
+          "size": 3655,
+          "sha256": "ef8e7cfdb77c6777b44cc513897864955fc81f032fb19f9483b3642571080e28"
+        },
+        {
+          "name": "toolchain-provenance-20260712.2.json",
+          "size": 4143,
+          "sha256": "be8c1b06bd27a86530c474c4e8afb65996df5b86bb33799f2514cc57c8bcb7ac"
+        },
+        {
+          "name": "toolchain-validation-20260712.2.json",
+          "size": 3886,
+          "sha256": "54413e465e42b2a18634fb0dbb15590f753df4f1fc4afd407abdfd1db73127ab"
+        },
+        {
+          "name": "tools-manifest-20260712.2.json",
+          "size": 3121,
+          "sha256": "ecf3bc4eacd79d66dc94549f13f2f03bdd2b1343dbf988dbcfbc8cad3f3e278a"
+        }
+      ]
+    },
+    {
+      "tag": "toolchain-20260810.1",
+      "sourceReleaseId": 368545723,
+      "assets": [
+        {
+          "name": "deno-v2.9.5-deno-x86_64-pc-windows-msvc-171efab55ac6b988.zip",
+          "size": 42691248,
+          "sha256": "171efab55ac6b9881fd53ee4c20f8bf3bb1340ffc618483746909014db12216a"
+        },
+        {
+          "name": "ffmpeg-redistribution.md",
+          "size": 2847,
+          "sha256": "99071d3b87133944b78702d01c6da02d7cb9d9004f8a59f5e5f4e738c2d4eaf3"
+        },
+        {
+          "name": "ffmpeg-windows-autobuild-2026-07-31-16-16-ffmpeg-N-125875-g5d4d3bdc61-win64-gpl-47f131b7a83c9ddc.zip",
+          "size": 169718040,
+          "sha256": "47f131b7a83c9ddc5f25d50e890f2a40201a5402b8fdb8cb31f5dd6bd8e51e45"
+        },
+        {
+          "name": "LICENSE",
+          "size": 35149,
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        },
+        {
+          "name": "LICENSE.md",
+          "size": 1074,
+          "sha256": "f62497fffecc0852960c8d3e6934b9db86d16396e9b604072e923892cae3a588"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.md",
+          "size": 2320,
+          "sha256": "538f3800041476b1172399d6a256698429961dff56cae53b6f0386271a95f739"
+        },
+        {
+          "name": "toolchain-checksums-20260810.1.txt",
+          "size": 1031,
+          "sha256": "1ba6da0bfe2619750eec070c4555ac9575a55c8e7030d88fd8adafc0c848727d"
+        },
+        {
+          "name": "toolchain-compliance-20260810.1.json",
+          "size": 3655,
+          "sha256": "bb9cf38a8686908cb42ee3848350a0e0ca3f72307dc361b043b554786785aa5b"
+        },
+        {
+          "name": "toolchain-provenance-20260810.1.json",
+          "size": 4144,
+          "sha256": "3bc036ffdaf8c752842c1d12f630fcbf7831b2c7c0d499b5f02a14b9f8628df5"
+        },
+        {
+          "name": "toolchain-validation-20260810.1.json",
+          "size": 3887,
+          "sha256": "45fa620928c543cf52f1b49208e2c498e05f342dc340ff1c874da24cf5646e35"
+        },
+        {
+          "name": "tools-manifest-20260810.1.json",
+          "size": 3121,
+          "sha256": "cc56f6bc567c37138e15586eb8af2427b6dab9b414c801ef9338a386deb2b019"
+        }
+      ]
+    },
+    {
+      "tag": "toolchain-20260824.1",
+      "sourceReleaseId": 378195933,
+      "assets": [
+        {
+          "name": "ffmpeg-redistribution.md",
+          "size": 2847,
+          "sha256": "99071d3b87133944b78702d01c6da02d7cb9d9004f8a59f5e5f4e738c2d4eaf3"
+        },
+        {
+          "name": "LICENSE",
+          "size": 35149,
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        },
+        {
+          "name": "LICENSE.md",
+          "size": 1074,
+          "sha256": "f62497fffecc0852960c8d3e6934b9db86d16396e9b604072e923892cae3a588"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.md",
+          "size": 2320,
+          "sha256": "538f3800041476b1172399d6a256698429961dff56cae53b6f0386271a95f739"
+        },
+        {
+          "name": "toolchain-checksums-20260824.1.txt",
+          "size": 849,
+          "sha256": "2a30c3418aab15a3dfee9f4932f89a4a99f3d722c6f906db29c9a36494a9399c"
+        },
+        {
+          "name": "toolchain-compliance-20260824.1.json",
+          "size": 3655,
+          "sha256": "41f81b1c092552191062e328d8c494b7fb7152ea59c6c228b5a0ea79bba7cdea"
+        },
+        {
+          "name": "toolchain-provenance-20260824.1.json",
+          "size": 4144,
+          "sha256": "fc6882bf726ef532f6ab418b99fabfd48f303811b91fd19b6f482ff0b4c789a5"
+        },
+        {
+          "name": "toolchain-validation-20260824.1.json",
+          "size": 4032,
+          "sha256": "cc7c4c937902b8c63533d6af45e2ea3ff44c26944b6316df72034ec800700d8a"
+        },
+        {
+          "name": "tools-manifest-20260824.1.json",
+          "size": 3121,
+          "sha256": "57cbcb880701610ee0bb457563f596b7946666d2a6252aeb9bd3f4b3949e7d72"
+        },
+        {
+          "name": "yt-dlp-2026.08.19-yt-dlp-66674953fe251b89.exe",
+          "size": 17840399,
+          "sha256": "66674953fe251b89f4d08c5f0e35e0728679bd67ab3d7d05c0562af101dd3e7a"
+        }
+      ]
+    }
+  ]
+}

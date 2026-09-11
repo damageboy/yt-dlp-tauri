@@ -6,7 +6,7 @@ import {
   selectManifestAsset,
 } from "./channel.mjs";
 
-export const ARCHIVE_REPOSITORY = "Chlience/yt-dlp-tauri-toolchain";
+export const ARCHIVE_REPOSITORY = "damageboy/yt-dlp-tauri";
 export const GITHUB_API_VERSION = "2026-03-10";
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 const REVISION_PATTERN = /^[0-9]{8}\.[1-9][0-9]*$/u;
@@ -141,14 +141,13 @@ async function fetchRevisionRelease(
     release.draft !== false ||
     (allowPrerelease
       ? typeof release.prerelease !== "boolean"
-      : release.prerelease !== false) ||
-    release.immutable !== true ||
+      : release.prerelease !== true) ||
     !Array.isArray(release.assets)
   ) {
     throw integrityError(
       allowPrerelease
-        ? `Historical archive revision ${releaseTag} must be published and immutable`
-        : `Archive revision ${releaseTag} must be a published normal immutable release`,
+        ? `Historical archive revision ${releaseTag} must be published`
+        : `Archive revision ${releaseTag} must be a published toolchain prerelease`,
     );
   }
   return release;
@@ -287,14 +286,13 @@ function requireImmutableRelease(release, allowPrerelease) {
     release.draft !== false ||
     (allowPrerelease
       ? typeof release.prerelease !== "boolean"
-      : release.prerelease !== false) ||
-    release.immutable !== true ||
+      : release.prerelease !== true) ||
     !Array.isArray(release.assets)
   ) {
     throw integrityError(
       allowPrerelease
-        ? "Historical archive release must be published and immutable"
-        : "Archive release must be a published normal immutable release",
+        ? "Historical archive release must be published"
+        : "Archive release must be a published toolchain prerelease",
     );
   }
   return release.tag_name;

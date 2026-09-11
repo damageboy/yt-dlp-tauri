@@ -1,6 +1,6 @@
 const SCHEMA_VERSION = 1;
 const REQUIRED_TARGETS = ["win-x64"];
-const REQUIRED_TOOLS = ["deno", "ffmpeg", "ffprobe", "yt-dlp"];
+const REQUIRED_TOOLS = ["aria2c", "deno", "ffmpeg", "ffprobe", "yt-dlp"];
 const TARGET_ARCHITECTURES = new Map([["win-x64", "x64"]]);
 const REVISION_PATTERN = /^[0-9]{8}\.[1-9][0-9]*$/u;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;

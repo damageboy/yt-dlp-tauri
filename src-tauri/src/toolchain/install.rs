@@ -16,7 +16,7 @@ use std::{
 
 const TOOL_DOWNLOAD_MAX_ATTEMPTS: usize = 3;
 const ARCHIVE_DOWNLOAD_PREFIX: &str =
-    "https://github.com/Chlience/yt-dlp-tauri-toolchain/releases/download/toolchain-";
+    "https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-";
 
 pub trait ProgressReporter {
     fn emit(&self, progress: ToolInstallProgress);
@@ -1070,7 +1070,7 @@ mod tests {
             &digest,
         );
         let archived = local_source_tool(
-            "https://github.com/Chlience/yt-dlp-tauri-toolchain/releases/download/toolchain-20260711.2/tool.exe",
+            "https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-20260711.2/tool.exe",
             4,
             &digest,
         );
