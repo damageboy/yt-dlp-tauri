@@ -71,9 +71,18 @@
         </section>
 
         <section class="download-panel" aria-labelledby="download-heading">
-          <div class="quality-field">
-            <label for="quality" id="download-heading" data-i18n="download.quality">Quality</label>
-            <select id="quality" disabled></select>
+          <div class="download-options">
+            <div class="format-field">
+              <label for="output-format" data-i18n="download.format">Format</label>
+              <select id="output-format">
+                <option value="mkv">.mkv</option>
+                <option value="mp4" selected>.mp4</option>
+              </select>
+            </div>
+            <div class="quality-field">
+              <label for="quality" id="download-heading" data-i18n="download.quality">Quality</label>
+              <select id="quality" disabled></select>
+            </div>
           </div>
           <div class="download-actions">
             <button id="download" class="button primary" type="button" disabled data-i18n="action.download">Download</button>

@@ -95,11 +95,30 @@ struct VideoFormatOption {
     is_best: bool,
 }
 
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum OutputFormat {
+    Mkv,
+    #[default]
+    Mp4,
+}
+
+impl OutputFormat {
+    fn extension(&self) -> &'static str {
+        match self {
+            Self::Mkv => "mkv",
+            Self::Mp4 => "mp4",
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 struct DownloadRequest {
     url: String,
     format_selector: String,
     label: String,
+    #[serde(default)]
+    output_format: OutputFormat,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1620,7 +1639,11 @@ fn video_download_command(
             } else {
                 request.format_selector.clone()
             })
-            .args(["--merge-output-format", "mp4", "--ffmpeg-location"])
+            .args([
+                "--merge-output-format", request.output_format.extension(),
+                "--remux-video", request.output_format.extension(),
+                "--ffmpeg-location",
+            ])
             .arg(&tools.ffmpeg_dir)
             .args(["--js-runtimes"])
             .arg(format!("deno:{}", tools.deno.display()))
@@ -2361,6 +2384,49 @@ mod tests {
     }
 
     #[test]
+    fn download_command_uses_selected_output_container_for_merge_and_remux() {
+        let root = PathBuf::from("/tools");
+        let tools = ToolPaths {
+            root: root.clone(),
+            yt_dlp: root.join("yt-dlp"),
+            ffmpeg: root.join("ffmpeg"),
+            ffmpeg_dir: root.clone(),
+            ffprobe: root.join("ffprobe"),
+            deno: root.join("deno"),
+        };
+        for (container, expected) in [(Some("mkv"), "mkv"), (Some("mp4"), "mp4"), (None, "mp4")] {
+            let mut input = serde_json::json!({
+                "url": "https://example.test/video",
+                "format_selector": "bv*[height<=720]+ba/b[height<=720]",
+                "label": "720p"
+            });
+            if let Some(container) = container {
+                input["output_format"] = container.into();
+            }
+            let request: DownloadRequest = serde_json::from_value(input).unwrap();
+            let command = video_download_command(&tools, &root, &request, None, &[]);
+            let args: Vec<_> = command.get_args().map(|arg| arg.to_str().unwrap()).collect();
+            for flag in ["--merge-output-format", "--remux-video"] {
+                assert!(args.windows(2).any(|pair| pair == [flag, expected]), "{flag} {expected}: {args:?}");
+            }
+            assert!(args.windows(2).any(|pair| pair == ["--format", "bv*[height<=720]+ba/b[height<=720]"]));
+        }
+    }
+
+    #[test]
+    fn download_request_rejects_unsupported_output_containers() {
+        for container in ["avi", "", "--exec"] {
+            let request = serde_json::from_value::<DownloadRequest>(serde_json::json!({
+                "url": "https://example.test/video",
+                "format_selector": "best",
+                "label": "Best",
+                "output_format": container
+            }));
+            assert!(request.is_err(), "accepted {container:?}");
+        }
+    }
+
+    #[test]
     fn download_command_preserves_disabled_argv_and_adds_aria2c_before_url() {
         let root = crate::test_support::TestDirectory::new();
         let exe = root.fixture("capture");
@@ -2376,11 +2442,12 @@ mod tests {
             url: "https://example.test/video".into(),
             format_selector: "best".into(),
             label: "test".into(),
+            output_format: OutputFormat::Mp4,
         };
         let baseline: Vec<String> = vec![
             "--ignore-config".into(), "--no-playlist".into(), "--newline".into(), "--paths".into(), format!("home:{}", root.0.display()),
             "--output".into(), "%(title).200B [%(id)s].%(ext)s".into(), "--format".into(), "best".into(), "--merge-output-format".into(), "mp4".into(),
-            "--ffmpeg-location".into(), root.0.display().to_string(), "--js-runtimes".into(), format!("deno:{}", tools.deno.display()),
+            "--remux-video".into(), "mp4".into(), "--ffmpeg-location".into(), root.0.display().to_string(), "--js-runtimes".into(), format!("deno:{}", tools.deno.display()),
             "--progress-template".into(), "yt-dlp-tauri-progress:%(progress.status)s|%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s".into(),
             "--print".into(), "after_move:yt-dlp-tauri-output:%(filepath)s".into(), "--progress".into(),
         ];

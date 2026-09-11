@@ -168,6 +168,7 @@ const translations = {
     "preview.readingMetadata": "Reading metadata from yt-dlp...",
     "preview.parseFailed": "Metadata parsing failed. Check the URL and tools.",
     "preview.noDescription": "No description returned by yt-dlp.",
+    "download.format": "Format",
     "download.quality": "Quality",
     "progress.idle": "Idle",
     "progress.parsing": "Parsing video metadata...",
@@ -358,6 +359,7 @@ const translations = {
     "preview.readingMetadata": "正在通过 yt-dlp 读取信息...",
     "preview.parseFailed": "解析失败。请检查链接和工具链。",
     "preview.noDescription": "yt-dlp 未返回描述。",
+    "download.format": "格式",
     "download.quality": "清晰度",
     "progress.idle": "空闲",
     "progress.parsing": "正在解析视频信息...",
@@ -604,6 +606,7 @@ const elements = {
   description: must<HTMLElement>("#video-description"),
   thumbnail: must<HTMLImageElement>("#thumbnail"),
   thumbnailEmpty: must<HTMLElement>("#thumbnail-empty"),
+  outputFormat: must<HTMLSelectElement>("#output-format"),
   quality: must<HTMLSelectElement>("#quality"),
   progress: must<HTMLProgressElement>("#progress"),
   progressText: must<HTMLElement>("#progress-text"),
@@ -1266,6 +1269,7 @@ async function downloadCurrentVideo() {
       request: {
         url,
         format_selector: selectedFormat.format_selector,
+        output_format: elements.outputFormat.value,
         label: selectedFormat.label,
       },
     });
@@ -1787,6 +1791,8 @@ function updateButtons() {
   const hasUrl = elements.url.value.trim().length > 0;
   elements.parse.disabled = state.busy || !hasUrl || !state.toolsReady;
   elements.download.disabled = state.busy || !state.metadata || !state.selectedFormat || !state.toolsReady;
+  elements.outputFormat.disabled = state.busy;
+  elements.quality.disabled = state.busy || !state.metadata?.format_options.length;
   elements.cancel.disabled = state.activeOperation !== "download" || state.cancelRequested;
   elements.chooseCookies.disabled = state.busy;
   elements.clearCookies.disabled = state.busy || !state.cookiesFile;

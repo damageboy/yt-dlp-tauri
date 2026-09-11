@@ -388,14 +388,33 @@ label {
 .download-panel {
   display: grid;
   min-width: 0;
-  grid-template-columns: minmax(220px, 1fr) auto;
+  grid-template-columns: auto 1fr;
   gap: 10px 12px;
   align-items: end;
   padding-top: 2px;
 }
 
-.quality-field {
+.download-options {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 240px);
+  gap: 12px;
   min-width: 0;
+}
+
+.format-field,
+.quality-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.download-options select {
+  appearance: none;
+  height: 42px;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='m3 4.5 3 3 3-3' fill='none' stroke='%2355636c' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
 }
 
 .download-actions {
