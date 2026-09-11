@@ -40,6 +40,7 @@ while ($true) {
 
 $root = Join-Path ([System.IO.Path]::GetTempPath()) ("owned-toolchain-" + [guid]::NewGuid())
 $originalPath = $env:PATH
+$originalLocalAppData = $env:LOCALAPPDATA
 try {
     cargo run --locked --manifest-path src-tauri/Cargo.toml --bin toolchain-smoke -- --manifest src-tauri/tools-manifest.json --target win-x64 --root $root --report $ReportPath
     if ($LASTEXITCODE -ne 0) { throw "Clean toolchain installation failed" }
@@ -53,11 +54,14 @@ try {
         Split-Path (Join-Path $root $relative) -Parent
     }
     $env:PATH = (($directories | Select-Object -Unique) -join ';') + ';' + $originalPath
+    # Production cancellation logs must stay inside this test's disposable root.
+    $env:LOCALAPPDATA = Join-Path $root "app-data"
     cargo test --locked --manifest-path src-tauri/Cargo.toml --lib real_rpc_download_lifecycle -- --ignored --nocapture
     if ($LASTEXITCODE -ne 0) { throw "Real aria2 RPC lifecycle failed" }
     $report | Add-Member -NotePropertyName aria2RpcLifecycle -NotePropertyValue "passed"
     $report | ConvertTo-Json -Depth 20 | Set-Content $ReportPath
 } finally {
     $env:PATH = $originalPath
+    $env:LOCALAPPDATA = $originalLocalAppData
     if (Test-Path $root) { Remove-Item $root -Recurse -Force }
 }
