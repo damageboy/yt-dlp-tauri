@@ -27,6 +27,11 @@
 
 ---
 
+## Fork downloads
+
+This fork lives at [damageboy/yt-dlp-tauri](https://github.com/damageboy/yt-dlp-tauri), based on [Chlience/yt-dlp-tauri](https://github.com/Chlience/yt-dlp-tauri).
+Download Windows x64 or macOS Apple Silicon / Intel installers from [Releases](https://github.com/damageboy/yt-dlp-tauri/releases). Every `master` push updates the [master prerelease](https://github.com/damageboy/yt-dlp-tauri/releases/tag/master-build); version tags publish stable releases. Installers are unsigned. See [release workflow details](docs/releases.md).
+
 ## What is yt-dlp-tauri?
 
 `yt-dlp-tauri` is a small desktop app for downloading videos with `yt-dlp` without writing command-line options by hand. Paste a video URL from a [site supported by yt-dlp](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md), preview the metadata, choose a quality, and download an MP4-friendly file from a focused desktop UI.
@@ -55,11 +60,11 @@ The project is desktop-first and local-first. It is not a hosted downloader serv
 | Frontend | Vanilla TypeScript, Vite |
 | UI | Fixed-size product-style desktop interface |
 | Toolchain | Project-managed Windows x64 archives, macOS Homebrew formulas, or trusted custom `yt-dlp`, `ffmpeg`, `ffprobe`, `deno`, and `aria2c` executables |
-| Bundles | Windows x64 NSIS; local macOS `.app` and `.dmg` |
+| Bundles | Windows x64 NSIS; macOS Apple Silicon and Intel `.dmg` |
 
 ## Quick Start
 
-The app has runtime definitions for Windows x64, macOS Apple Silicon, and macOS Intel. Published releases and project-hosted archive tools remain Windows-only; macOS users build local development artifacts from source.
+The app has runtime definitions for Windows x64, macOS Apple Silicon, and macOS Intel. This fork publishes installers for all three platforms. Project-hosted archive tools remain Windows-only; macOS uses Homebrew.
 
 ### macOS
 

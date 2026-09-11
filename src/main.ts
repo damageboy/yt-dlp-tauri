@@ -83,9 +83,9 @@ type ToolInstallProgress = {
 };
 
 const APP_VERSION = packageInfo.version;
-const PROJECT_REPOSITORY_URL = "https://github.com/Chlience/yt-dlp-tauri";
+const PROJECT_REPOSITORY_URL = "https://github.com/damageboy/yt-dlp-tauri";
 const PROJECT_RELEASES_URL = `${PROJECT_REPOSITORY_URL}/releases`;
-const LATEST_RELEASE_API_URL = "https://api.github.com/repos/Chlience/yt-dlp-tauri/releases/latest";
+const LATEST_RELEASE_API_URL = "https://api.github.com/repos/damageboy/yt-dlp-tauri/releases/latest";
 const GITHUB_ACCESS_STORAGE_KEY = "yt-dlp-tauri-github-access-mode";
 const RELEASE_NOTES_SEEN_VERSION_STORAGE_KEY = "yt-dlp-tauri-release-notes-seen-version";
 const HOMEBREW_URL = "https://brew.sh/";

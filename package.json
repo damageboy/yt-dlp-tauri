@@ -6,12 +6,12 @@
   "license": "GPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Chlience/yt-dlp-tauri.git"
+    "url": "git+https://github.com/damageboy/yt-dlp-tauri.git"
   },
   "bugs": {
-    "url": "https://github.com/Chlience/yt-dlp-tauri/issues"
+    "url": "https://github.com/damageboy/yt-dlp-tauri/issues"
   },
-  "homepage": "https://github.com/Chlience/yt-dlp-tauri#readme",
+  "homepage": "https://github.com/damageboy/yt-dlp-tauri#readme",
   "keywords": [
     "yt-dlp",
     "tauri",
