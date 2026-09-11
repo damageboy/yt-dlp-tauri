@@ -11,6 +11,8 @@ test("release workflow builds master pushes, version tags, and manual preflights
   assert.match(workflow, /workflow_dispatch:[\s\S]*?ref:[\s\S]*?publish:[\s\S]*?tag:/u);
   assert.match(workflow, /default: master/u);
   assert.match(workflow, /persist-credentials: false/u);
+  assert.match(workflow, /fetch-depth: 0/u);
+  assert.ok(workflow.includes("format('refs/tags/{0}', inputs.tag)"));
   for (const target of ["windows-x64", "macos-aarch64", "macos-x64"]) {
     assert.ok(workflow.includes(`name: ${target}`));
   }
