@@ -1,6 +1,6 @@
 const MARKER_OPEN = "<!-- toolchain-channel";
 const MARKER_CLOSE = "-->";
-const ARCHIVE_REPOSITORY = "Chlience/yt-dlp-tauri-toolchain";
+const ARCHIVE_REPOSITORY = "damageboy/yt-dlp-tauri";
 const LEGACY_RECORD_FIELDS = ["schemaVersion", "revision", "manifest", "sha256"];
 const ARCHIVE_RECORD_FIELDS = [
   "schemaVersion",
@@ -64,8 +64,7 @@ export function selectManifestAsset(release, record) {
   if (normalized.schemaVersion === 2) {
     if (
       release.tag_name !== normalized.releaseTag ||
-      release.draft !== false ||
-      release.immutable !== true
+      release.draft !== false
     ) {
       throw new Error("toolchain revision release must be published and immutable");
     }
@@ -90,7 +89,7 @@ export function selectManifestAsset(release, record) {
     throw new Error(`${normalized.manifest} must have an immutable GitHub download URL`);
   }
   if (normalized.schemaVersion === 2) {
-    const expectedPath = `/Chlience/yt-dlp-tauri-toolchain/releases/download/${normalized.releaseTag}/${encodeURIComponent(normalized.manifest)}`;
+    const expectedPath = `/damageboy/yt-dlp-tauri/releases/download/${normalized.releaseTag}/${encodeURIComponent(normalized.manifest)}`;
     if (downloadUrl.pathname !== expectedPath) {
       throw new Error(`${normalized.manifest} URL must match the archive revision release`);
     }

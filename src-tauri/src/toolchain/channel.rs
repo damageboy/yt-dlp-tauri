@@ -2,7 +2,7 @@ use super::{parse_manifest, ToolchainRevision, ToolsManifest};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
-pub const ARCHIVE_REPOSITORY: &str = "Chlience/yt-dlp-tauri-toolchain";
+pub const ARCHIVE_REPOSITORY: &str = "damageboy/yt-dlp-tauri";
 const CHANNEL_MARKER_OPEN: &str = "<!-- toolchain-channel";
 const CHANNEL_MARKER_CLOSE: &str = "-->";
 
@@ -32,10 +32,6 @@ pub struct GitHubRelease {
     #[serde(default)]
     pub body: Option<String>,
     pub draft: bool,
-    #[serde(default)]
-    pub prerelease: bool,
-    #[serde(default)]
-    pub immutable: bool,
     #[serde(default)]
     pub assets: Vec<ReleaseAsset>,
 }
@@ -115,13 +111,9 @@ pub fn select_revision_manifest_asset(
     release: &GitHubRelease,
     record: &ChannelRecord,
 ) -> Result<ReleaseAsset, String> {
-    if release.tag_name != record.release_tag
-        || release.draft
-        || release.prerelease
-        || !release.immutable
-    {
+    if release.tag_name != record.release_tag || release.draft {
         return Err(format!(
-            "Toolchain revision {} must be a published immutable release",
+            "Toolchain revision {} must be a published release",
             record.revision
         ));
     }
@@ -267,7 +259,7 @@ mod tests {
 
     #[test]
     fn parses_one_schema_two_channel_record() {
-        let body = channel_body("Chlience/yt-dlp-tauri-toolchain", "toolchain-20260712.1");
+        let body = channel_body("damageboy/yt-dlp-tauri", "toolchain-20260712.1");
 
         let record = parse_channel_record(&body).unwrap();
 
@@ -281,16 +273,16 @@ mod tests {
             parse_channel_record(&channel_body("someone/else", "toolchain-20260712.1")).is_err()
         );
         assert!(parse_channel_record(&channel_body(
-            "Chlience/yt-dlp-tauri-toolchain",
+            "damageboy/yt-dlp-tauri",
             "toolchain-20260711.1"
         ))
         .is_err());
     }
 
     #[test]
-    fn selects_one_exact_manifest_from_an_immutable_release() {
+    fn selects_one_exact_manifest_from_a_published_prerelease() {
         let record = parse_channel_record(&channel_body(
-            "Chlience/yt-dlp-tauri-toolchain",
+            "damageboy/yt-dlp-tauri",
             "toolchain-20260712.1",
         ))
         .unwrap();
@@ -298,8 +290,6 @@ mod tests {
             tag_name: record.release_tag.clone(),
             body: None,
             draft: false,
-            prerelease: false,
-            immutable: true,
             assets: vec![ReleaseAsset {
                 id: 7,
                 name: record.manifest.clone(),
@@ -315,9 +305,20 @@ mod tests {
         let asset = select_revision_manifest_asset(&release, &record).unwrap();
 
         assert_eq!(asset.id, 7);
-        let mut mutable = release.clone();
-        mutable.immutable = false;
-        assert!(select_revision_manifest_asset(&mutable, &record).is_err());
+        let mut published: GitHubRelease = serde_json::from_value(serde_json::json!({
+            "tag_name": record.release_tag,
+            "draft": false,
+            "prerelease": true,
+            "immutable": false,
+            "assets": [{
+                "id": 7, "name": record.manifest, "size": 123,
+                "browser_download_url": asset.browser_download_url
+            }]
+        }))
+        .unwrap();
+        assert!(select_revision_manifest_asset(&published, &record).is_ok());
+        published.draft = true;
+        assert!(select_revision_manifest_asset(&published, &record).is_err());
         let mut duplicate = release.clone();
         duplicate.assets.push(duplicate.assets[0].clone());
         assert!(select_revision_manifest_asset(&duplicate, &record).is_err());
@@ -333,7 +334,7 @@ mod tests {
             "tools": [{
               "name": "yt-dlp",
               "path": "Tools/win-x64/yt-dlp/yt-dlp.exe",
-              "sourceUrl": "https://github.com/Chlience/yt-dlp-tauri-toolchain/releases/download/toolchain-20260712.1/yt-dlp.exe",
+              "sourceUrl": "https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-20260712.1/yt-dlp.exe",
               "sourceSize": 10,
               "sourceSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
               "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",

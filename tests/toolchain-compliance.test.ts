@@ -99,7 +99,7 @@ test("compliance requires policy and lock to contain the same source IDs", () =>
 test("publication metadata includes reviewed evidence and deterministic checksums", () => {
   const input = fixture();
   input.lock.sources[0].assets[0].archive = {
-    repository: "Chlience/yt-dlp-tauri-toolchain",
+    repository: "damageboy/yt-dlp-tauri",
     releaseTag: "toolchain-20260712.1",
     assetName: "ffmpeg-1.0.0-aaaaaaaaaaaaaaaa.zip",
     size: 100,

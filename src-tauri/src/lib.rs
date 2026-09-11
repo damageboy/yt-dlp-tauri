@@ -41,12 +41,10 @@ use toolchain::{
 };
 
 const TOOLS_MANIFEST_FILE: &str = "tools-manifest.json";
-const LEGACY_LATEST_RELEASE_API_URL: &str =
-    "https://api.github.com/repos/Chlience/yt-dlp-tauri/releases/latest";
 const TOOLCHAIN_STABLE_API_URL: &str =
-    "https://api.github.com/repos/Chlience/yt-dlp-tauri-toolchain/releases/tags/toolchain-stable";
+    "https://api.github.com/repos/damageboy/yt-dlp-tauri/releases/tags/toolchain-stable";
 const TOOLCHAIN_RELEASE_API_PREFIX: &str =
-    "https://api.github.com/repos/Chlience/yt-dlp-tauri-toolchain/releases/tags";
+    "https://api.github.com/repos/damageboy/yt-dlp-tauri/releases/tags";
 const GITHUB_API_VERSION: &str = "2026-03-10";
 const GITHUB_PROXY_URL_PREFIX: &str = "https://gh-proxy.com/";
 const PROGRESS_PREFIX: &str = "yt-dlp-tauri-progress:";
@@ -235,13 +233,14 @@ async fn get_aria2c_settings(
 
 #[tauri::command]
 async fn save_aria2c_config(
+    app: AppHandle,
     state: tauri::State<'_, Aria2cState>,
     config: Aria2cConfig,
 ) -> Result<Aria2cSettings, String> {
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         state.save_with(config, |config| {
-            aria2c::inspect_aria2c(&active_aria2c_config(config)?)
+            aria2c::inspect_aria2c(&active_aria2c_config(&app, config)?)
         })
     })
     .await
@@ -594,7 +593,7 @@ async fn reinstall_tools(
 async fn parse_metadata(app: AppHandle, url: String) -> Result<VideoMetadata, String> {
     let aria2c_config = app.state::<Aria2cState>().snapshot_config()?;
     tauri::async_runtime::spawn_blocking(move || {
-        let aria2c_config = active_aria2c_config(&aria2c_config)?;
+        let aria2c_config = active_aria2c_config(&app, &aria2c_config)?;
         aria2c::require_aria2c(&aria2c_config)?;
         let platform = current_platform_definition()?;
         validate_http_url(&url)?;
@@ -654,7 +653,7 @@ async fn download_video(
     let guard = begin_download(&process_state)?;
 
     tauri::async_runtime::spawn_blocking(move || {
-        let aria2c_config = active_aria2c_config(&aria2c_config)?;
+        let aria2c_config = active_aria2c_config(&app, &aria2c_config)?;
         let status = aria2c::require_aria2c(&aria2c_config)?;
         let rpc_config = aria2c_config.enabled.then(RpcConfig::new).transpose()?;
         let aria2c_args =
@@ -868,30 +867,41 @@ fn request_download_cancel(state: &DownloadProcessState) -> Result<(), String> {
 fn aria2c_for_toolchain(
     config: &Aria2cConfig,
     source: ToolchainSource,
-    homebrew_prefix: Option<&Path>,
+    managed_executable: Option<&Path>,
 ) -> Aria2cConfig {
     let mut resolved = config.clone();
     if source == ToolchainSource::Managed {
-        if let Some(prefix) = homebrew_prefix {
-            resolved.executable_path = Some(prefix.join("bin/aria2c"));
+        if let Some(executable) = managed_executable {
+            resolved.executable_path = Some(executable.to_path_buf());
         }
     }
     resolved
 }
 
-fn active_aria2c_config(config: &Aria2cConfig) -> Result<Aria2cConfig, String> {
+fn active_aria2c_config(app: &AppHandle, config: &Aria2cConfig) -> Result<Aria2cConfig, String> {
     let platform = current_platform_definition()?;
     let source = read_toolchain_source(platform.default_source)?;
-    let homebrew = if source == ToolchainSource::Managed
-        && matches!(
-            platform.provider,
-            ManagedProviderDefinition::Homebrew { .. }
-        ) {
-        Some(locate_homebrew(&platform)?.prefix)
+    let executable = if source == ToolchainSource::Managed {
+        Some(match &platform.provider {
+            ManagedProviderDefinition::Homebrew { .. } => {
+                locate_homebrew(&platform)?.prefix.join("bin/aria2c")
+            }
+            ManagedProviderDefinition::ArchiveManifest { manifest_target } => {
+                let target = read_manifest_target(app, manifest_target)?;
+                let tool = target
+                    .tools
+                    .iter()
+                    .find(|tool| tool.name == "aria2c")
+                    .ok_or("Managed Windows manifest is missing aria2c")?;
+                locate_archive_tools(app, manifest_target)?
+                    .root
+                    .join(toolchain::relative_manifest_tool_path(tool)?)
+            }
+        })
     } else {
         None
     };
-    Ok(aria2c_for_toolchain(config, source, homebrew.as_deref()))
+    Ok(aria2c_for_toolchain(config, source, executable.as_deref()))
 }
 
 fn with_required_aria2c(
@@ -906,7 +916,7 @@ fn with_required_aria2c(
     }) {
         return Ok(statuses);
     }
-    let config = active_aria2c_config(&app.state::<Aria2cState>().snapshot_config()?)?;
+    let config = active_aria2c_config(app, &app.state::<Aria2cState>().snapshot_config()?)?;
     let mut required = aria2c::inspect_aria2c(&config)?.tool_status();
     if required.availability != "available" {
         // This selected/PATH executable is outside package installation remediation.
@@ -960,7 +970,7 @@ fn locate_managed_tools(
 }
 
 fn locate_archive_tools(app: &AppHandle, target: &str) -> Result<ToolPaths, String> {
-    if let Some(paths) = active_tool_paths(&app_data_root()?, target)? {
+    if let Some((paths, _)) = active_runtime_toolchain(&app_data_root()?, target)? {
         return Ok(paths);
     }
     let names = tool_names_for_target(target)
@@ -1089,10 +1099,6 @@ fn fetch_latest_tool_manifest_blocking(
         .map_err(|error| format!("Failed to fetch stable toolchain from {stable_url}: {error}"))?;
     let release_status = release_response.status();
 
-    if should_use_legacy_tool_manifest(release_status) {
-        return fetch_legacy_tool_manifest(&client, github_access_mode);
-    }
-
     if !release_status.is_success() {
         let body = release_response.text().unwrap_or_default();
         return Err(github_http_error_message(release_status, &body));
@@ -1159,7 +1165,8 @@ fn fetch_latest_tool_manifest_blocking(
             manifest_bytes.len()
         ));
     }
-    verify_channel_manifest(&channel, &manifest_bytes)?;
+    let manifest = verify_channel_manifest(&channel, &manifest_bytes)?;
+    validate_runtime_manifest(&manifest)?;
     let manifest_json = String::from_utf8(manifest_bytes.to_vec())
         .map_err(|error| format!("{} is not valid UTF-8: {error}", channel.manifest))?;
 
@@ -1168,83 +1175,6 @@ fn fetch_latest_tool_manifest_blocking(
         manifest_json: Some(manifest_json),
         revision: Some(channel.revision),
         source: Some("archive".to_string()),
-    })
-}
-
-fn should_use_legacy_tool_manifest(status: reqwest::StatusCode) -> bool {
-    status == reqwest::StatusCode::NOT_FOUND
-}
-
-fn fetch_legacy_tool_manifest(
-    client: &reqwest::blocking::Client,
-    github_access_mode: &str,
-) -> Result<LatestToolManifestResult, String> {
-    let release_url =
-        resolve_github_url_for_mode(LEGACY_LATEST_RELEASE_API_URL, github_access_mode);
-    let release_response = client
-        .get(&release_url)
-        .header("Accept", "application/vnd.github+json")
-        .header("X-GitHub-Api-Version", GITHUB_API_VERSION)
-        .send()
-        .map_err(|error| format!("Failed to fetch latest release from {release_url}: {error}"))?;
-    let release_status = release_response.status();
-    if release_status.as_u16() == 404 {
-        return Ok(LatestToolManifestResult {
-            status: "no_release".to_string(),
-            manifest_json: None,
-            revision: None,
-            source: None,
-        });
-    }
-    if !release_status.is_success() {
-        let body = release_response.text().unwrap_or_default();
-        return Err(github_http_error_message(release_status, &body));
-    }
-    let release_body = release_response
-        .text()
-        .map_err(|error| format!("Failed to read latest release response: {error}"))?;
-    let release_payload: Value = serde_json::from_str(&release_body)
-        .map_err(|error| format!("Failed to parse latest release response: {error}"))?;
-    let Some(download_url) = find_tool_manifest_download_url(&release_payload) else {
-        return Ok(LatestToolManifestResult {
-            status: "no_manifest".to_string(),
-            manifest_json: None,
-            revision: None,
-            source: None,
-        });
-    };
-
-    let manifest_url = resolve_github_url_for_mode(&download_url, github_access_mode);
-    let manifest_response = client
-        .get(&manifest_url)
-        .header("Accept", "application/json")
-        .send()
-        .map_err(|error| {
-            format!("Failed to fetch {TOOLS_MANIFEST_FILE} from {manifest_url}: {error}")
-        })?;
-    let manifest_status = manifest_response.status();
-    if !manifest_status.is_success() {
-        let body = manifest_response.text().unwrap_or_default();
-        return Err(github_http_error_message(manifest_status, &body));
-    }
-    let manifest_json = manifest_response
-        .text()
-        .map_err(|error| format!("Failed to read {TOOLS_MANIFEST_FILE}: {error}"))?;
-    let manifest = manifest_from_json(&manifest_json)?;
-
-    Ok(LatestToolManifestResult {
-        status: "available".to_string(),
-        manifest_json: Some(manifest_json),
-        revision: manifest.revision,
-        source: Some("legacy".to_string()),
-    })
-}
-
-fn find_tool_manifest_download_url(payload: &Value) -> Option<String> {
-    payload.get("assets")?.as_array()?.iter().find_map(|asset| {
-        let name = asset.get("name")?.as_str()?;
-        let download_url = asset.get("browser_download_url")?.as_str()?;
-        (name == TOOLS_MANIFEST_FILE).then(|| download_url.to_string())
     })
 }
 
@@ -1288,26 +1218,62 @@ fn manifest_target_from_manifest(
     manifest_target(&manifest, target)
 }
 
+fn validate_runtime_manifest(manifest: &ToolsManifest) -> Result<(), String> {
+    let revision = manifest
+        .revision
+        .as_deref()
+        .ok_or("Managed toolchain manifest is missing revision")?;
+    let json = serde_json::to_vec(manifest).map_err(to_string)?;
+    let record = toolchain::ChannelRecord {
+        repository: toolchain::ARCHIVE_REPOSITORY.into(),
+        revision: revision.into(),
+        release_tag: format!("toolchain-{revision}"),
+        manifest: format!("tools-manifest-{revision}.json"),
+        sha256: toolchain::sha256_bytes(&json),
+    };
+    verify_channel_manifest(&record, &json)?;
+    let target = manifest_target(manifest, "win-x64")?;
+    for name in ["yt-dlp", "ffmpeg", "ffprobe", "deno", "aria2c"] {
+        if target.tools.iter().filter(|tool| tool.name == name).count() != 1 {
+            return Err(format!(
+                "Managed Windows manifest must contain exactly one {name}"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn active_runtime_toolchain(
+    base: &Path,
+    target: &str,
+) -> Result<Option<(ToolPaths, String)>, String> {
+    let Some(state) = read_active_state(base, target)? else {
+        return Ok(None);
+    };
+    let path = revision_root(base, target, &state.revision)?.join(REVISION_MANIFEST_FILE);
+    let json = fs::read_to_string(&path).map_err(to_string)?;
+    if validate_runtime_manifest(&manifest_from_json(&json)?).is_err() {
+        return Ok(None);
+    }
+    let paths =
+        active_tool_paths(base, target)?.ok_or("Active toolchain changed during resolution")?;
+    Ok(Some((paths, json)))
+}
+
 fn read_current_manifest(app: &AppHandle, target: &str) -> Result<ToolsManifest, String> {
     manifest_from_json(&read_current_manifest_json(app, target)?)
 }
 
 fn read_current_manifest_json(app: &AppHandle, target: &str) -> Result<String, String> {
     let base = app_data_root()?;
-    if let Some(state) = read_active_state(&base, target)? {
-        let _ = active_tool_paths(&base, target)?;
-        let path = revision_root(&base, target, &state.revision)?.join(REVISION_MANIFEST_FILE);
-        return fs::read_to_string(&path).map_err(|error| {
-            format!(
-                "Failed to read active toolchain manifest at {}: {error}",
-                path.display()
-            )
-        });
+    if let Some((_, json)) = active_runtime_toolchain(&base, target)? {
+        return Ok(json);
     }
 
     let bundled_path = bundled_manifest_path(app)?;
     let bundled_json = fs::read_to_string(&bundled_path).map_err(to_string)?;
     let bundled_manifest = manifest_from_json(&bundled_json)?;
+    validate_runtime_manifest(&bundled_manifest)?;
     let active_manifest = active_tools_manifest_path()
         .ok()
         .filter(|path| path.exists())
@@ -1320,7 +1286,9 @@ fn read_current_manifest_json(app: &AppHandle, target: &str) -> Result<String, S
 
     match active_manifest {
         Some((json, manifest))
-            if manifest_freshness_key(&manifest) > manifest_freshness_key(&bundled_manifest) =>
+            if validate_runtime_manifest(&manifest).is_ok()
+                && manifest_freshness_key(&manifest)
+                    > manifest_freshness_key(&bundled_manifest) =>
         {
             Ok(json)
         }
@@ -1384,6 +1352,7 @@ fn install_and_activate_manifest(
     force_fresh: bool,
 ) -> Result<Vec<ToolStatus>, String> {
     let manifest = manifest_from_json(manifest_json)?;
+    validate_runtime_manifest(&manifest)?;
     let target = manifest_target_from_manifest(manifest, target_name)?;
     let base = app_data_root()?;
     let previous_revision = read_active_state(&base, target_name)?.map(|state| state.revision);
@@ -2339,6 +2308,97 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn managed_archive_aria2c_ignores_saved_override() {
+        let saved = Aria2cConfig {
+            executable_path: Some("/untrusted/aria2c".into()),
+            ..Default::default()
+        };
+        let resolved = aria2c_for_toolchain(
+            &saved,
+            ToolchainSource::Managed,
+            Some(Path::new("/owned/aria2c.exe")),
+        );
+        assert_eq!(resolved.executable_path, Some("/owned/aria2c.exe".into()));
+        assert!(!resolved.enabled);
+        assert_eq!(
+            aria2c_for_toolchain(
+                &saved,
+                ToolchainSource::Local,
+                Some(Path::new("/owned/aria2c.exe"))
+            ),
+            saved
+        );
+    }
+
+    #[test]
+    fn active_runtime_resolution_rejects_foreign_and_incomplete_manifests() {
+        let root = test_support::TestDirectory::new();
+        let owned = parse_manifest(include_str!("../tools-manifest.json")).unwrap();
+        let revision = owned.revision.as_deref().unwrap();
+        let installed = revision_root(&root.0, "win-x64", revision).unwrap();
+        for tool in &owned.targets[0].tools {
+            let path = installed.join(toolchain::relative_manifest_tool_path(tool).unwrap());
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, b"test executable").unwrap();
+        }
+        for case in ["owned", "foreign", "missing-aria2c"] {
+            let mut manifest = owned.clone();
+            if case == "foreign" {
+                manifest.targets[0].tools[0].source_url = manifest.targets[0].tools[0]
+                    .source_url
+                    .replace("damageboy/yt-dlp-tauri", "someone/else");
+            } else if case == "missing-aria2c" {
+                manifest.targets[0]
+                    .tools
+                    .retain(|tool| tool.name != "aria2c");
+            }
+            let json = serde_json::to_string(&manifest).unwrap();
+            fs::write(installed.join(REVISION_MANIFEST_FILE), &json).unwrap();
+            let state = ActiveToolchainState::new(
+                "win-x64",
+                revision,
+                &toolchain::sha256_bytes(json.as_bytes()),
+                None,
+            )
+            .unwrap();
+            fs::write(
+                toolchain::active_state_path(&root.0, "win-x64").unwrap(),
+                serde_json::to_vec(&state).unwrap(),
+            )
+            .unwrap();
+            assert!(active_tool_paths(&root.0, "win-x64").unwrap().is_some());
+            let resolved = active_runtime_toolchain(&root.0, "win-x64").unwrap();
+            assert_eq!(resolved.is_some(), case == "owned", "{case}");
+            if let Some((paths, selected_json)) = resolved {
+                assert_eq!(paths.root, installed);
+                assert_eq!(selected_json, json);
+            }
+        }
+    }
+
+    #[test]
+    fn runtime_manifest_rejects_foreign_sources_and_missing_aria2c() {
+        let mut manifest = parse_manifest(include_str!("../tools-manifest.json")).unwrap();
+        for tool in &mut manifest.targets[0].tools {
+            tool.source_url = format!(
+                "https://github.com/damageboy/yt-dlp-tauri/releases/download/{}",
+                tool.source_url.split("/releases/download/").nth(1).unwrap()
+            );
+        }
+        let mut aria = manifest.targets[0].tools[0].clone();
+        aria.name = "aria2c".into();
+        aria.path = "Tools/win-x64/aria2c/aria2c.exe".into();
+        manifest.targets[0]
+            .tools
+            .retain(|tool| tool.name != "aria2c");
+        assert!(validate_runtime_manifest(&manifest).is_err());
+        manifest.targets[0].tools.push(aria);
+        assert!(validate_runtime_manifest(&manifest).is_ok());
+        manifest.targets[0].tools[0].source_url = "https://github.com/untrusted/toolchain/releases/download/toolchain-20260824.1/tool.exe".into();
+        assert!(validate_runtime_manifest(&manifest).is_err());
+    }
+
+    #[test]
     fn homebrew_aria2c_ignores_legacy_override_but_custom_tools_keep_it() {
         let saved = Aria2cConfig {
             enabled: true,
@@ -2349,7 +2409,7 @@ mod tests {
         let managed = aria2c_for_toolchain(
             &saved,
             ToolchainSource::Managed,
-            Some(Path::new("/custom brew")),
+            Some(Path::new("/custom brew/bin/aria2c")),
         );
         assert_eq!(
             managed.executable_path,
@@ -2361,7 +2421,7 @@ mod tests {
             aria2c_for_toolchain(
                 &saved,
                 ToolchainSource::Local,
-                Some(Path::new("/custom brew"))
+                Some(Path::new("/custom brew/bin/aria2c"))
             ),
             saved
         );
@@ -2582,12 +2642,13 @@ mod tests {
         let manifest = include_str!("../tools-manifest.json");
         let manifest: ToolsManifest =
             serde_json::from_str(manifest).expect("manifest should parse");
+        validate_runtime_manifest(&manifest).expect("bundled manifest must use owned sources");
         let targets: BTreeMap<_, _> = manifest
             .targets
             .iter()
             .map(|target| (target.target.as_str(), target))
             .collect();
-        let expected_tools = BTreeSet::from(["deno", "ffmpeg", "ffprobe", "yt-dlp"]);
+        let expected_tools = BTreeSet::from(["aria2c", "deno", "ffmpeg", "ffprobe", "yt-dlp"]);
 
         for target_name in ["win-x64"] {
             let target = targets
@@ -2662,40 +2723,19 @@ mod tests {
     #[test]
     fn resolves_github_urls_through_proxy_when_requested() {
         assert_eq!(
-            resolve_github_url_for_mode("https://github.com/Chlience/yt-dlp-tauri", "direct"),
-            "https://github.com/Chlience/yt-dlp-tauri"
+            resolve_github_url_for_mode("https://github.com/damageboy/yt-dlp-tauri", "direct"),
+            "https://github.com/damageboy/yt-dlp-tauri"
         );
         assert_eq!(
-            resolve_github_url_for_mode("https://github.com/Chlience/yt-dlp-tauri", "gh-proxy"),
-            "https://gh-proxy.com/https://github.com/Chlience/yt-dlp-tauri"
+            resolve_github_url_for_mode("https://github.com/damageboy/yt-dlp-tauri", "gh-proxy"),
+            "https://gh-proxy.com/https://github.com/damageboy/yt-dlp-tauri"
         );
         assert_eq!(
             resolve_github_url_for_mode(
-                "https://gh-proxy.com/https://github.com/Chlience/yt-dlp-tauri",
+                "https://gh-proxy.com/https://github.com/damageboy/yt-dlp-tauri",
                 "gh-proxy"
             ),
-            "https://gh-proxy.com/https://github.com/Chlience/yt-dlp-tauri"
-        );
-    }
-
-    #[test]
-    fn finds_tool_manifest_download_url_in_release_payload() {
-        let payload = serde_json::json!({
-            "assets": [
-                {
-                    "name": "yt-dlp-tauri_0.1.10_windows_x64-setup.exe",
-                    "browser_download_url": "https://example.test/setup.exe"
-                },
-                {
-                    "name": "tools-manifest.json",
-                    "browser_download_url": "https://github.com/Chlience/yt-dlp-tauri/releases/download/v0.1.10/tools-manifest.json"
-                }
-            ]
-        });
-
-        assert_eq!(
-            find_tool_manifest_download_url(&payload).as_deref(),
-            Some("https://github.com/Chlience/yt-dlp-tauri/releases/download/v0.1.10/tools-manifest.json")
+            "https://gh-proxy.com/https://github.com/damageboy/yt-dlp-tauri"
         );
     }
 
@@ -2712,19 +2752,6 @@ mod tests {
             github_http_error_message(reqwest::StatusCode::NOT_FOUND, ""),
             "404 Not Found"
         );
-    }
-
-    #[test]
-    fn legacy_tool_manifest_is_used_only_when_stable_channel_is_absent() {
-        assert!(should_use_legacy_tool_manifest(
-            reqwest::StatusCode::NOT_FOUND
-        ));
-        assert!(!should_use_legacy_tool_manifest(
-            reqwest::StatusCode::FORBIDDEN
-        ));
-        assert!(!should_use_legacy_tool_manifest(
-            reqwest::StatusCode::INTERNAL_SERVER_ERROR
-        ));
     }
 
     #[test]

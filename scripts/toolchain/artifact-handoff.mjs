@@ -146,7 +146,7 @@ export function selectValidationRun({
       return (
         identifierEquals(run.workflow_id, expectedWorkflowId) &&
         run.path === expectedWorkflowPath &&
-        run.event === "pull_request" &&
+        ["pull_request", "workflow_dispatch"].includes(run.event) &&
         run.status === "completed" &&
         run.conclusion === "success" &&
         run.head_sha === expectedHeadSha &&

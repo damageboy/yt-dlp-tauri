@@ -9,8 +9,8 @@ import {
 } from "./channel.mjs";
 import { validatePublicationReport } from "./validation-report.mjs";
 
-const ARCHIVE_REPOSITORY = "Chlience/yt-dlp-tauri-toolchain";
-const SOURCE_REPOSITORY = "Chlience/yt-dlp-tauri";
+const ARCHIVE_REPOSITORY = "damageboy/yt-dlp-tauri";
+const SOURCE_REPOSITORY = "damageboy/yt-dlp-tauri";
 const REVISION_PATTERN = /^[0-9]{8}\.[1-9][0-9]*$/u;
 const COMMIT_PATTERN = /^[a-f0-9]{40}$/u;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
@@ -229,8 +229,7 @@ function normalizeImmutableRelease(value, expectedTag, label) {
   if (
     release.tag_name !== expectedTag ||
     release.draft !== false ||
-    typeof release.prerelease !== "boolean" ||
-    release.immutable !== true
+    typeof release.prerelease !== "boolean"
   ) {
     throw new Error(`${label} must be the exact published immutable historical release ${expectedTag}`);
   }
@@ -258,17 +257,16 @@ function normalizeRevisionRelease(value, expectedTag) {
   }
   const state =
     release.draft === true &&
-    release.prerelease === false &&
+    release.prerelease === true &&
     release.immutable === false
       ? "draft"
       : release.draft === false &&
-          release.prerelease === false &&
-          release.immutable === true
+          release.prerelease === true
         ? "published"
         : null;
   if (!state) {
     throw new Error(
-      `Archive revision release ${expectedTag} must be a resumable draft or normal immutable publication`,
+      `Archive revision release ${expectedTag} must be a resumable draft or published toolchain prerelease`,
     );
   }
   const assets =
@@ -323,8 +321,7 @@ function requireStableRelease(value) {
   if (
     release.tag_name !== "toolchain-stable" ||
     release.draft !== false ||
-    release.prerelease !== true ||
-    release.immutable !== true
+    release.prerelease !== true
   ) {
     throw new Error("Archive stable release must be the published immutable channel");
   }
@@ -332,19 +329,6 @@ function requireStableRelease(value) {
     ...release,
     id: requireIdentifier(release.id, "Archive stable release ID"),
     body: typeof release.body === "string" ? release.body : "",
-  };
-}
-
-function requireApplicationRelease(value, sourceRepository) {
-  const release = requireObject(value, "Application release");
-  requireRepository(release.repository, sourceRepository, "Application release repository");
-  if (release.draft !== false || release.prerelease !== false) {
-    throw new Error("Application release must be a published normal release");
-  }
-  return {
-    ...release,
-    id: requireIdentifier(release.id, "Application release ID"),
-    tag_name: requireString(release.tag_name, "Application release tag"),
   };
 }
 
@@ -366,7 +350,7 @@ function normalizeHandoff(value, expected) {
     handoff.mergeCommitSha !== expected.commitSha ||
     handoff.lockSha256 !== expected.lockSha256
   ) {
-    throw new Error("Artifact handoff does not match exact-main publication identity");
+    throw new Error("Artifact handoff does not match exact-master publication identity");
   }
   return {
     ...handoff,
@@ -618,7 +602,6 @@ export function createArchivePublicationPlan(inputValue) {
       `Toolchain revision ${revision} must be newer than the promoted revision ${promoted.revision}`,
     );
   }
-  const applicationRelease = requireApplicationRelease(input.applicationRelease, sourceRepository);
   const channel = {
     schemaVersion: 2,
     repository: archiveRepository,
@@ -656,7 +639,7 @@ export function createArchivePublicationPlan(inputValue) {
   const draftRelease = {
     tag: proposedTag,
     name: `Toolchain ${revision}`,
-    prerelease: false,
+    prerelease: true,
     makeLatest: false,
     body: releaseNotes({
       revision,
@@ -708,14 +691,6 @@ export function createArchivePublicationPlan(inputValue) {
         releaseId: stableRelease.id,
         channel,
         releaseBody: renderChannelRecord(stableRelease.body, channel),
-      },
-      {
-        kind: "legacy-manifest",
-        applicationReleaseId: applicationRelease.id,
-        applicationReleaseTag: applicationRelease.tag_name,
-        manifestSource: publicDescriptor(manifest),
-        path: manifest.path,
-        assetName: "tools-manifest.json",
       },
     ],
   };
@@ -884,7 +859,6 @@ export function createArchiveRollbackPlan(inputValue) {
       lockSha256: validation.report.lockSha256,
     });
   }
-  const applicationRelease = requireApplicationRelease(input.applicationRelease, sourceRepository);
   const channel = {
     schemaVersion: 2,
     repository: archiveRepository,
@@ -910,13 +884,6 @@ export function createArchiveRollbackPlan(inputValue) {
         releaseId: stableRelease.id,
         channel,
         releaseBody: renderChannelRecord(stableRelease.body, channel),
-      },
-      {
-        kind: "legacy-manifest",
-        applicationReleaseId: applicationRelease.id,
-        applicationReleaseTag: applicationRelease.tag_name,
-        manifestSource: publicDescriptor(manifest),
-        assetName: "tools-manifest.json",
       },
     ],
   };

@@ -81,7 +81,7 @@ if ($targets.Count -ne 1) {
 }
 $target = $targets[0]
 $tools = @($target.tools)
-foreach ($requiredTool in @('yt-dlp', 'ffmpeg', 'ffprobe', 'deno')) {
+foreach ($requiredTool in @('yt-dlp', 'ffmpeg', 'ffprobe', 'deno', 'aria2c')) {
   $matches = @($tools | Where-Object { $_.name -eq $requiredTool })
   if ($matches.Count -ne 1) {
     throw "tools-manifest.json must contain exactly one $requiredTool entry for win-x64"

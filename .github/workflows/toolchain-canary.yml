@@ -45,7 +45,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          ARCHIVE_REPOSITORY: Chlience/yt-dlp-tauri-toolchain
+          ARCHIVE_REPOSITORY: damageboy/yt-dlp-tauri
           ARCHIVE_CHANNEL_TAG: toolchain-stable
         run: |
           set -euo pipefail
@@ -65,9 +65,6 @@ jobs:
           if (stable.status === "missing") {
             await appendFile(process.env.GITHUB_OUTPUT, "fallback=true\n", "utf8");
           } else {
-            if (stable.release.immutable !== true) {
-              throw new Error(`Archive release ${stable.channel.releaseTag} is mutable`);
-            }
             await writeFile(".canary/stable-manifest.json", stable.bytes);
             await appendFile(
               process.env.GITHUB_OUTPUT,

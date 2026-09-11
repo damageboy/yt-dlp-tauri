@@ -5,7 +5,7 @@ import {
 } from "./archive-contract.mjs";
 
 const TARGET_ORDER = ["win-x64"];
-const TOOL_ORDER = ["yt-dlp", "ffmpeg", "ffprobe", "deno"];
+const TOOL_ORDER = ["yt-dlp", "ffmpeg", "ffprobe", "deno", "aria2c"];
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const REVISION_PATTERN = /^[0-9]{8}\.[1-9][0-9]*$/;
 
@@ -57,7 +57,7 @@ function manifestSourceUrl(asset, revision, sourceMode) {
     throw new Error(`Unsupported manifest source mode: ${sourceMode}`);
   }
   const archive = validateArchiveDescriptor(asset.archive, {
-    repository: "Chlience/yt-dlp-tauri-toolchain",
+    repository: "damageboy/yt-dlp-tauri",
     size: asset.size,
     sha256: asset.sha256,
   });

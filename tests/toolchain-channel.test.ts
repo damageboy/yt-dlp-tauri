@@ -11,7 +11,7 @@ import {
 function channelFixture(overrides = {}) {
   return {
     schemaVersion: 2,
-    repository: "Chlience/yt-dlp-tauri-toolchain",
+    repository: "damageboy/yt-dlp-tauri",
     revision: "20260711.1",
     releaseTag: "toolchain-20260711.1",
     manifest: "tools-manifest-20260711.1.json",
@@ -107,7 +107,7 @@ test("manifest asset selection requires one exact HTTPS asset", () => {
     id: 123,
     name: record.manifest,
     browser_download_url:
-      "https://github.com/Chlience/yt-dlp-tauri-toolchain/releases/download/toolchain-20260711.1/tools-manifest-20260711.1.json",
+      "https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-20260711.1/tools-manifest-20260711.1.json",
     size: 1024,
   };
   const release = {
@@ -134,7 +134,7 @@ test("manifest asset selection requires one exact HTTPS asset", () => {
     /HTTPS download URL/u,
   );
   assert.throws(
-    () => selectManifestAsset({ ...release, immutable: false }, record),
+    () => selectManifestAsset({ ...release, draft: true }, record),
     /immutable/u,
   );
 });

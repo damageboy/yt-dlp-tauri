@@ -19,7 +19,7 @@ import {
 const repositoryId = 1250277749;
 const commitSha = "a".repeat(40);
 const headSha = "b".repeat(40);
-const headRef = "feat/toolchain-update";
+const headRef = "codex/owned-toolchain";
 const workflowId = 311325680;
 const revision = "20260712.1";
 const lockSha256 = "e".repeat(64);
@@ -32,7 +32,7 @@ function pull(overrides = {}) {
     merged_at: "2026-07-12T05:00:00Z",
     merge_commit_sha: commitSha,
     base: {
-      ref: "main",
+      ref: "master",
       repo: { id: repositoryId },
     },
     head: {
@@ -57,7 +57,7 @@ function run(overrides = {}) {
     head_repository: { id: repositoryId },
     run_attempt: 2,
     created_at: "2026-07-12T04:00:00Z",
-    html_url: "https://github.com/Chlience/yt-dlp-tauri/actions/runs/29175682626",
+    html_url: "https://github.com/damageboy/yt-dlp-tauri/actions/runs/29175682626",
     pull_requests: [
       {
         number: 3,
@@ -76,7 +76,7 @@ function artifact(name: string, id: number, overrides = {}) {
     size_in_bytes: 1234,
     expired: false,
     digest: `sha256:${"c".repeat(64)}`,
-    archive_download_url: `https://api.github.com/repos/Chlience/yt-dlp-tauri/actions/artifacts/${id}/zip`,
+    archive_download_url: `https://api.github.com/repos/damageboy/yt-dlp-tauri/actions/artifacts/${id}/zip`,
     workflow_run: {
       id: 29175682626,
       head_sha: headSha,
@@ -93,7 +93,7 @@ test("merged commit resolves one same-repository pull request", () => {
       pulls: [pull()],
       commitSha,
       repositoryId,
-      baseRef: "main",
+      baseRef: "master",
     }).number,
     3,
   );
@@ -103,7 +103,7 @@ test("merged commit resolves one same-repository pull request", () => {
         pulls: [pull({ head: { sha: headSha, repo: { id: 99 } } })],
         commitSha,
         repositoryId,
-        baseRef: "main",
+        baseRef: "master",
       }),
     /exactly one same-repository merged pull request/u,
   );
@@ -113,7 +113,7 @@ test("merged commit resolves one same-repository pull request", () => {
         pulls: [pull(), pull({ number: 4 })],
         commitSha,
         repositoryId,
-        baseRef: "main",
+        baseRef: "master",
       }),
     /exactly one same-repository merged pull request/u,
   );
@@ -216,7 +216,7 @@ test("candidate artifact selection requires one live digest-bound artifact", () 
 
 test("handoff report binds merge, PR run, candidate, and validation artifacts", () => {
   const report = createArtifactHandoff({
-    repository: "Chlience/yt-dlp-tauri",
+    repository: "damageboy/yt-dlp-tauri",
     repositoryId,
     commitSha,
     revision,
@@ -247,7 +247,7 @@ test("handoff CLI parses repository and exact main identity", () => {
   assert.deepEqual(
     parseArtifactHandoffArgs([
       "--repository",
-      "Chlience/yt-dlp-tauri",
+      "damageboy/yt-dlp-tauri",
       "--repository-id",
       String(repositoryId),
       "--commit-sha",
@@ -260,10 +260,10 @@ test("handoff CLI parses repository and exact main identity", () => {
       "outputs.txt",
     ]),
     {
-      repository: "Chlience/yt-dlp-tauri",
+      repository: "damageboy/yt-dlp-tauri",
       repositoryId: String(repositoryId),
       commitSha,
-      baseRef: "main",
+      baseRef: "master",
       workflowPath: ".github/workflows/toolchain-validate.yml",
       lockPath: "lock.json",
       outputPath: "handoff.json",
@@ -287,17 +287,17 @@ test("handoff CLI resolves authenticated REST metadata and writes exact outputs"
   });
 
   const responses = new Map<string, unknown>([
-    [`/repos/Chlience/yt-dlp-tauri/commits/${commitSha}/pulls`, [pull()]],
+    [`/repos/damageboy/yt-dlp-tauri/commits/${commitSha}/pulls`, [pull()]],
     [
-      "/repos/Chlience/yt-dlp-tauri/actions/workflows/.github%2Fworkflows%2Ftoolchain-validate.yml",
+      "/repos/damageboy/yt-dlp-tauri/actions/workflows/.github%2Fworkflows%2Ftoolchain-validate.yml",
       { id: workflowId, path: ".github/workflows/toolchain-validate.yml" },
     ],
     [
-      `/repos/Chlience/yt-dlp-tauri/actions/workflows/${workflowId}/runs?event=pull_request&branch=feat%2Ftoolchain-update&head_sha=${headSha}&status=completed&per_page=100`,
+      `/repos/damageboy/yt-dlp-tauri/actions/workflows/${workflowId}/runs?branch=codex%2Fowned-toolchain&head_sha=${headSha}&status=completed&per_page=100`,
       { workflow_runs: [run()] },
     ],
     [
-      "/repos/Chlience/yt-dlp-tauri/actions/runs/29175682626/artifacts?per_page=100",
+      "/repos/damageboy/yt-dlp-tauri/actions/runs/29175682626/artifacts?per_page=100",
       {
         artifacts: [
           artifact(`toolchain-candidate-${revision}`, 100),
@@ -319,7 +319,7 @@ test("handoff CLI resolves authenticated REST metadata and writes exact outputs"
   };
 
   const report = await resolveToolchainArtifact({
-    repository: "Chlience/yt-dlp-tauri",
+    repository: "damageboy/yt-dlp-tauri",
     repositoryId,
     commitSha,
     lockPath,
@@ -334,4 +334,13 @@ test("handoff CLI resolves authenticated REST metadata and writes exact outputs"
   assert.equal(JSON.parse(await readFile(outputPath, "utf8")).runId, "29175682626");
   assert.match(await readFile(githubOutputPath, "utf8"), /candidate_artifact_id=100/u);
   assert.equal(requests.length, 4);
+});
+
+
+test("explicit candidate dispatch preserves exact repository, branch, and commit checks", () => {
+  const options = {workflowId, workflowPath:".github/workflows/toolchain-validate.yml",headSha,headRef,repositoryId,pullRequestNumber:3};
+  assert.equal(selectValidationRun({...options,runs:[run({event:"workflow_dispatch",pull_requests:[]})]}).id,29175682626);
+  for (const override of [{head_sha:"c".repeat(40)},{head_branch:"other"},{head_repository:{id:99}},{event:"push"}]) {
+    assert.throws(() => selectValidationRun({...options,runs:[run({event:"workflow_dispatch",pull_requests:[],...override})]}), /successful validation run/u);
+  }
 });

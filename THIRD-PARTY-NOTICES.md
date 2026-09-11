@@ -30,6 +30,15 @@
 - Purpose: JavaScript runtime for yt-dlp EJS challenge solver support.
 - License: MIT; the exact upstream text is retained in [`third-party/deno/LICENSE.md`](third-party/deno/LICENSE.md).
 
+## aria2
+
+- Installed file: `Tools/win-x64/aria2c/aria2c.exe`
+- Source: <https://github.com/aria2/aria2/tree/release-1.37.0>
+- Official release: <https://github.com/aria2/aria2/releases/tag/release-1.37.0>
+- Official Windows x64 ZIP: `aria2-1.37.0-win-64bit-build1.zip`, preserved without repackaging, including its `COPYING` and README.
+- License: GPL-2.0-or-later; exact archive license retained in [`third-party/aria2/COPYING`](third-party/aria2/COPYING).
+- Exact archive and executable hashes: `toolchain-lock.json`.
+
 ## Updating Bundled Tools
 
 Review source and selection changes in `toolchain-policy.json`, then run `scripts/update-toolchain.mjs`. The resolver generates `toolchain-lock.json`, `src-tauri/tools-manifest.json`, and `TOOLCHAIN_CHANGELOG.md` together. `scripts/download-tools.ps1` consumes the generated manifest and contains no pinned release metadata.

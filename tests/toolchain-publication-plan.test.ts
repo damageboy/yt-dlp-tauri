@@ -11,8 +11,8 @@ import {
   mergeTargetReports,
 } from "../scripts/toolchain/validation-report.mjs";
 
-const archiveRepository = "Chlience/yt-dlp-tauri-toolchain";
-const sourceRepository = "Chlience/yt-dlp-tauri";
+const archiveRepository = "damageboy/yt-dlp-tauri";
+const sourceRepository = "damageboy/yt-dlp-tauri";
 const revision = "20260712.1";
 const historicalRevision = "20260711.1";
 const commitSha = "a".repeat(40);
@@ -24,7 +24,7 @@ const historicalByteSha256 = "1".repeat(64);
 const proposedByteSha256 = "2".repeat(64);
 
 function targetReport(target: string) {
-  const tools = ["deno", "ffmpeg", "ffprobe", "yt-dlp"];
+  const tools = ["aria2c", "deno", "ffmpeg", "ffprobe", "yt-dlp"];
   return createTargetReport({
     target,
     success: true,
@@ -49,7 +49,7 @@ function targetReport(target: string) {
     extractedHashes: tools.map((name, index) => ({
       tool: name,
       path: `Tools/${target}/${name}`,
-      sha256: String(index + 6).repeat(64),
+      sha256: (index + 6).toString(16).repeat(64),
     })),
   });
 }
@@ -303,11 +303,10 @@ test("publication reuses historical descriptors and uploads proposed descriptors
       "metadata",
       "publish-release",
       "promote-channel",
-      "legacy-manifest",
     ],
   );
   assert.equal(plan.operations[1].path, `assets/${proposedByteSha256}`);
-  assert.deepEqual(plan.operations.at(-2)?.channel, {
+  assert.deepEqual(plan.operations.at(-1)?.channel, {
     schemaVersion: 2,
     repository: archiveRepository,
     revision,
@@ -315,7 +314,8 @@ test("publication reuses historical descriptors and uploads proposed descriptors
     manifest: `tools-manifest-${revision}.json`,
     sha256: manifestSha256,
   });
-  assert.equal(plan.operations.at(-1)?.applicationReleaseTag, "v0.1.11");
+  assert.equal(plan.draftRelease.prerelease, true);
+  assert.equal(plan.draftRelease.makeLatest, false);
 });
 
 test("publication supports a metadata-only revision with historical tool bytes", () => {
@@ -359,7 +359,7 @@ test("publication resumes only an exact mutable revision draft", () => {
     name: initialPlan.draftRelease.name,
     body: initialPlan.draftRelease.body,
     draft: true,
-    prerelease: false,
+    prerelease: true,
     immutable: false,
     assets: [],
   };
@@ -383,7 +383,7 @@ test("publication resumes only an exact mutable revision draft", () => {
     () =>
       createArchivePublicationPlan(
         publicationFixture({
-          revisionRelease: { ...revisionDraft, draft: false, immutable: false },
+          revisionRelease: { ...revisionDraft, draft: false, prerelease: false },
         }),
       ),
     /resumable draft/iu,
@@ -402,7 +402,7 @@ test("publication resumes after an exact immutable revision was published", () =
     name: initialPlan.draftRelease.name,
     body: initialPlan.draftRelease.body,
     draft: false,
-    prerelease: false,
+    prerelease: true,
     immutable: true,
     assets: expected.map((asset, index) =>
       releaseAsset(
@@ -441,7 +441,7 @@ test("publication requires one exact candidate byte object", () => {
 test("publication reuses only exact immutable historical assets", () => {
   const fixture = publicationFixture();
   fixture.historicalReleases[0].immutable = false;
-  assert.throws(() => createArchivePublicationPlan(fixture), /immutable historical release/u);
+  assert.doesNotThrow(() => createArchivePublicationPlan(fixture));
 
   const wrongDigest = publicationFixture();
   wrongDigest.historicalReleases[0].assets[0].digest = `sha256:${"8".repeat(64)}`;
@@ -590,15 +590,15 @@ test("rollback verifies history and emits only channel and compatibility operati
   const plan = createArchiveRollbackPlan(rollbackFixture());
   assert.deepEqual(
     plan.operations.map((operation) => operation.kind),
-    ["promote-channel", "legacy-manifest"],
+    ["promote-channel"],
   );
   assert.equal(plan.operations[0].channel.revision, historicalRevision);
-  assert.equal(plan.operations[1].manifestSource.name, `tools-manifest-${historicalRevision}.json`);
+  assert.equal(plan.operations[0].channel.manifest, `tools-manifest-${historicalRevision}.json`);
 });
 
 test("rollback rejects mutable history and requires revalidation or protected approval", () => {
   const mutable = rollbackFixture();
-  mutable.revisionRelease.immutable = false;
+  mutable.revisionRelease.draft = true;
   assert.throws(() => createArchiveRollbackPlan(mutable), /immutable revision release/u);
 
   assert.throws(

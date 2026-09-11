@@ -13,7 +13,7 @@ import {
 } from "../scripts/toolchain/validation-report.mjs";
 
 function targetReport(target: string, windowsFfmpegSha256?: string) {
-  const tools = ["deno", "ffmpeg", "ffprobe", "yt-dlp"].map((name) => ({
+  const tools = ["aria2c", "deno", "ffmpeg", "ffprobe", "yt-dlp"].map((name) => ({
     name,
     version: "1.0.0",
   }));
@@ -57,7 +57,7 @@ function releaseAsset(name: string, size: number, sha256: string) {
     name,
     size,
     digest: `sha256:${sha256}`,
-    browser_download_url: `https://github.com/Chlience/yt-dlp-tauri/releases/download/toolchain-stable/${name}`,
+    browser_download_url: `https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-stable/${name}`,
   };
 }
 
@@ -74,13 +74,13 @@ function publicationFixture(overrides = {}) {
       manifestSha256,
       lockSha256,
       runId: "1234",
-      runUrl: "https://github.com/Chlience/yt-dlp-tauri/actions/runs/1234",
+      runUrl: "https://github.com/damageboy/yt-dlp-tauri/actions/runs/1234",
     },
   );
   if (overrides.reportCommitSha) report.commitSha = overrides.reportCommitSha;
   const mirrorName = `ffmpeg-win-x64-${revision}.zip`;
   return {
-    repository: "Chlience/yt-dlp-tauri",
+    repository: "damageboy/yt-dlp-tauri",
     revision,
     commitSha,
     mergedPullRequest: {
@@ -116,11 +116,11 @@ function publicationFixture(overrides = {}) {
             tools: [
               {
                 name: "ffmpeg",
-                sourceUrl: `https://github.com/Chlience/yt-dlp-tauri/releases/download/toolchain-stable/${mirrorName}`,
+                sourceUrl: `https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-stable/${mirrorName}`,
               },
               {
                 name: "ffprobe",
-                sourceUrl: `https://github.com/Chlience/yt-dlp-tauri/releases/download/toolchain-stable/${mirrorName}`,
+                sourceUrl: `https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-stable/${mirrorName}`,
               },
             ],
           },
@@ -191,7 +191,7 @@ function rollbackFixture(overrides = {}) {
     manifestSha256,
     lockSha256,
     runId: "1200",
-    runUrl: "https://github.com/Chlience/yt-dlp-tauri/actions/runs/1200",
+    runUrl: "https://github.com/damageboy/yt-dlp-tauri/actions/runs/1200",
   });
   const revalidationReport = mergeTargetReports(reports, {
     revision: rollbackRevision,
@@ -199,7 +199,7 @@ function rollbackFixture(overrides = {}) {
     manifestSha256,
     lockSha256,
     runId: "1300",
-    runUrl: "https://github.com/Chlience/yt-dlp-tauri/actions/runs/1300",
+    runUrl: "https://github.com/damageboy/yt-dlp-tauri/actions/runs/1300",
   });
   const currentChannel = {
     schemaVersion: 1,
@@ -219,7 +219,7 @@ function rollbackFixture(overrides = {}) {
   };
   return {
     mode: "rollback",
-    repository: "Chlience/yt-dlp-tauri",
+    repository: "damageboy/yt-dlp-tauri",
     rollbackRevision,
     currentCommitSha,
     reason: "Restore the last validated FFmpeg combination",
@@ -257,11 +257,11 @@ function rollbackFixture(overrides = {}) {
             tools: [
               {
                 name: "ffmpeg",
-                sourceUrl: `https://github.com/Chlience/yt-dlp-tauri/releases/download/toolchain-stable/${mirrorName}`,
+                sourceUrl: `https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-stable/${mirrorName}`,
               },
               {
                 name: "ffprobe",
-                sourceUrl: `https://github.com/Chlience/yt-dlp-tauri/releases/download/toolchain-stable/${mirrorName}`,
+                sourceUrl: `https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-stable/${mirrorName}`,
               },
             ],
           },
@@ -343,7 +343,7 @@ test("publisher reuses only an exact immutable release asset", () => {
       name: mirror.name,
       size: mirror.size,
       digest: `sha256:${mirror.sha256}`,
-      browser_download_url: `https://github.com/Chlience/yt-dlp-tauri/releases/download/toolchain-stable/${mirror.name}`,
+      browser_download_url: `https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-stable/${mirror.name}`,
     },
   ];
   assert.equal(createPublicationPlan(fixture).steps[0].action, "reuse");

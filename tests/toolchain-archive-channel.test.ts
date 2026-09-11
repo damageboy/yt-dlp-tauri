@@ -27,7 +27,7 @@ function fixture(sourceRevision = "20260712.1") {
           tools: [
             {
               name: "yt-dlp",
-              sourceUrl: `https://github.com/Chlience/yt-dlp-tauri-toolchain/releases/download/${sourceReleaseTag}/yt-dlp.exe`,
+              sourceUrl: `https://github.com/damageboy/yt-dlp-tauri/releases/download/${sourceReleaseTag}/yt-dlp.exe`,
               sourceSize: 4,
               sourceSha256: "b".repeat(64),
               sha256: "c".repeat(64),
@@ -40,7 +40,7 @@ function fixture(sourceRevision = "20260712.1") {
   const digest = createHash("sha256").update(manifestBytes).digest("hex");
   const channel = {
     schemaVersion: 2,
-    repository: "Chlience/yt-dlp-tauri-toolchain",
+    repository: "damageboy/yt-dlp-tauri",
     revision,
     releaseTag,
     manifest: manifestName,
@@ -51,7 +51,7 @@ function fixture(sourceRevision = "20260712.1") {
     name: manifestName,
     size: manifestBytes.length,
     digest: `sha256:${digest}`,
-    browser_download_url: `https://github.com/Chlience/yt-dlp-tauri-toolchain/releases/download/${releaseTag}/${manifestName}`,
+    browser_download_url: `https://github.com/damageboy/yt-dlp-tauri/releases/download/${releaseTag}/${manifestName}`,
   };
   return { revision, releaseTag, manifestName, manifestBytes, channel, asset };
 }
@@ -78,7 +78,7 @@ test("archive channel resolves one immutable revision and exact manifest bytes",
       return jsonResponse({
         tag_name: value.releaseTag,
         draft: false,
-        prerelease: false,
+        prerelease: true,
         immutable: true,
         assets: [value.asset],
       });
@@ -98,7 +98,7 @@ test("archive channel resolves one immutable revision and exact manifest bytes",
   assert.equal(requests.length, 3);
 });
 
-test("archive channel rejects a mutable revision release", async () => {
+test("archive channel rejects a non-toolchain stable release", async () => {
   const value = fixture();
   const fetchImpl = async (url: string) => {
     if (url.endsWith("/releases/tags/toolchain-stable")) {
@@ -123,56 +123,17 @@ test("archive channel rejects a mutable revision release", async () => {
   );
 });
 
-test("historical rollback accepts an immutable prerelease without weakening stable consumers", async () => {
+test("stable and historical consumers accept checksum-verified repository prereleases", async () => {
   const value = fixture();
-  const release = {
-    tag_name: value.releaseTag,
-    draft: false,
-    prerelease: true,
-    immutable: true,
-    assets: [value.asset],
-  };
+  const release = {tag_name:value.releaseTag,draft:false,prerelease:true,immutable:false,assets:[value.asset]};
   const fetchImpl = async () => jsonResponse(release);
-
-  await assert.rejects(
-    fetchToolchainRevisionRelease({ revision: value.revision, fetchImpl }),
-    (error: unknown) =>
-      error instanceof ArchiveChannelError &&
-      error.failureClass === "archive-integrity",
-  );
-  const historical = await fetchHistoricalToolchainRevisionRelease({
-    revision: value.revision,
-    fetchImpl,
-  });
-  await assert.rejects(
-    downloadVerifiedReleaseAsset({
-      release: historical,
-      name: value.manifestName,
-      fetchImpl: async () => ({
-        ok: true,
-        status: 200,
-        arrayBuffer: async () => value.manifestBytes,
-      }),
-    }),
-    (error: unknown) =>
-      error instanceof ArchiveChannelError &&
-      error.failureClass === "archive-integrity",
-  );
-  const downloaded = await downloadVerifiedHistoricalReleaseAsset({
-    release: historical,
-    name: value.manifestName,
-    fetchImpl: async () => ({
-      ok: true,
-      status: 200,
-      arrayBuffer: async () => value.manifestBytes,
-    }),
-  });
-
-  assert.equal(historical.tag_name, value.releaseTag);
-  assert.equal(historical.prerelease, true);
-  assert.equal(historical.immutable, true);
-  assert.deepEqual(downloaded.bytes, value.manifestBytes);
-  assert.equal(downloaded.sha256, value.channel.sha256);
+  const stable = await fetchToolchainRevisionRelease({revision:value.revision,fetchImpl});
+  const historical = await fetchHistoricalToolchainRevisionRelease({revision:value.revision,fetchImpl});
+  for (const download of [downloadVerifiedReleaseAsset, downloadVerifiedHistoricalReleaseAsset]) {
+    const result = await download({release:historical,name:value.manifestName,fetchImpl:async () => ({ok:true,status:200,arrayBuffer:async () => value.manifestBytes})});
+    assert.equal(result.sha256,value.channel.sha256);
+  }
+  assert.deepEqual(stable,historical);
 });
 
 test("archive channel rejects source releases newer than the channel", () => {

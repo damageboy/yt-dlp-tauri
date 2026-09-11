@@ -45,7 +45,7 @@ The project is desktop-first and local-first. It is not a hosted downloader serv
 - Use Cookie files for authenticated sites, including Netscape `cookies.txt` and one-line browser Cookie headers.
 - Install, update, reinstall, and verify managed tools from Settings: project-hosted archives on Windows and existing Homebrew installations on macOS.
 - Switch between managed tools and trusted custom tools discovered from platform search paths or selected by absolute path.
-- Resolve the Windows stable toolchain from project-controlled immutable GitHub Release assets.
+- Resolve the Windows stable toolchain from project-controlled, hash-pinned GitHub Release assets.
 - Stage and verify every Windows archive tool before atomic activation, preserving the active revision when an update fails.
 - Switch the UI between English and Chinese.
 - Check GitHub Releases for app updates, with optional `gh-proxy` routing for update and release access.
@@ -96,7 +96,7 @@ src-tauri/target/release/bundle/macos/
 src-tauri/target/release/bundle/dmg/
 ```
 
-These local `.app` and `.dmg` bundles are unsigned and unnotarized. macOS may block them until you explicitly allow them to open in system security settings. The project does not publish macOS release artifacts.
+These local `.app` and `.dmg` bundles are unsigned and unnotarized. macOS may block them until you explicitly allow them to open in system security settings. macOS release artifacts are published by the Release workflow.
 
 ### Windows
 
@@ -144,7 +144,7 @@ src-tauri\target\release\bundle\nsis\
 | Item | Purpose |
 | --- | --- |
 | `toolchain-policy.json` | Reviewed upstream sources, version-selection rules, targets, and allowed hosts. |
-| `toolchain-lock.json` | Generated upstream identity, immutable archive descriptors, and archive/executable SHA-256 hashes. |
+| `toolchain-lock.json` | Generated upstream identity, hash-pinned archive descriptors, and archive/executable SHA-256 hashes. |
 | `src-tauri/tools-manifest.json` | Generated runtime revision, project-controlled archive URLs, target names, and executable hashes. |
 | `TOOLCHAIN_CHANGELOG.md` | Tool-only revision history, independent from application releases. |
 | `src-tauri/tauri.conf.json` | Tauri app metadata, fixed window size, bundle target, icons, and resources. |
@@ -156,7 +156,7 @@ src-tauri\target\release\bundle\nsis\
 Current platform scope:
 
 - Runtime definitions support `win-x64`, `macos-arm64`, and `macos-x64`.
-- Project-hosted archive tools and published application releases remain Windows-only.
+- Project-hosted archive tools remain Windows-only; application releases support Windows and macOS.
 - Tool binaries are not committed to the repository, and macOS Homebrew tools are never copied into the app bundle or checkout.
 
 ## Managed and Custom Tool Modes
@@ -171,9 +171,9 @@ Custom/local tools are checked by running their version commands and the same de
 
 ## Required aria2c tool, optional downloader
 
-aria2c is required even when its use for downloads is off. On macOS, **Settings → Toolchain** installs, verifies, updates and reinstalls the Homebrew `aria2` formula alongside the other required tools. Custom setups and current Windows archives require a working `aria2c`/`aria2c.exe` on PATH or an explicitly selected executable. In **Settings → Toolchain**, turn on **Use aria2c**, choose **Parallelism** from 1 to 16, and **Save**. The default is off, with parallelism 16.
+aria2c is required even when its use for downloads is off. On macOS, **Settings → Toolchain** installs, verifies, updates and reinstalls the Homebrew `aria2` formula alongside the other required tools. Windows managed mode installs the pinned x64 `aria2c.exe` with the other four tools. Custom setups require a working `aria2c`/`aria2c.exe` on PATH or an explicitly selected executable. In **Settings → Toolchain**, turn on **Use aria2c**, choose **Parallelism** from 1 to 16, and **Save**. The default is off, with parallelism 16.
 
-Homebrew mode uses its managed executable directly. Custom tool paths include aria2c alongside the other tools; choosing a file saves it, and the shared **Use PATH** clears explicit paths. Custom discovery searches the selected absolute path, PATH, then macOS Homebrew locations. **Verify tools** shows its version or an actionable error. An explicitly selected invalid executable does not silently fall back to another installation. Disabled settings can still be saved after a selected executable disappears, but tool setup remains incomplete until aria2c is restored or reconfigured.
+Windows managed mode and Homebrew mode use their managed executable directly. Custom tool paths include aria2c alongside the other tools; choosing a file saves it, and the shared **Use PATH** clears explicit paths. Custom discovery searches the selected absolute path, PATH, then macOS Homebrew locations. **Verify tools** shows its version or an actionable error. An explicitly selected invalid executable does not silently fall back to another installation. Disabled settings can still be saved after a selected executable disappears, but tool setup remains incomplete until aria2c is restored or reconfigured.
 
 One parallelism value N generates `--downloader <absolute path> --downloader-args "aria2c:-j N -x N -s N"`. These options set concurrent items, connections per server per item, and splits. N is not a total connection cap or the number of simultaneous videos. yt-dlp chooses eligible protocols; some formats use its native downloader. The progress bar remains indeterminate when no numeric progress is available.
 
@@ -181,15 +181,17 @@ Settings persist in `state/aria2c.json`. The usage toggle controls only yt-dlp d
 
 ## Toolchain Maintenance
 
-The `Toolchain Discovery` workflow resolves yt-dlp, Deno, FFmpeg, and FFprobe once per week and maintains one reviewed `bot/toolchain-weekly` pull request. `Toolchain Freshness` checks released source URLs daily and opens a focused emergency pull request for an affected source. Both workflows require human review before merge.
+The `Toolchain Discovery` workflow resolves yt-dlp, Deno, FFmpeg, and FFprobe once per week; aria2 is pinned to the reviewed 1.37.0 archive. It maintains one reviewed `bot/toolchain-weekly` pull request. `Toolchain Freshness` checks released source URLs daily and opens a focused emergency pull request for an affected source. Both workflows require human review before merge.
 
-Merged toolchain changes pass native validation before publication to the separate `yt-dlp-tauri-toolchain` archive. The app follows the `toolchain-stable` channel, while `TOOLCHAIN_CHANGELOG.md` records revisions independently from application releases.
+Merged toolchain changes pass native validation before publication to `toolchain-*` prereleases in this same `damageboy/yt-dlp-tauri` repository. The app follows the owned `toolchain-stable` channel, while `TOOLCHAIN_CHANGELOG.md` records revisions independently from application releases.
 
 The unified resolver can be inspected locally without changing files:
 
 ```bash
 GITHUB_TOKEN="$(gh auth token)" node scripts/update-toolchain.mjs --dry-run
 ```
+
+See [toolchain ownership and provenance](docs/toolchain-ownership.md) for the migration inventory, binary origins and publishing contract.
 
 Source and selection changes belong in `toolchain-policy.json`. The resolver generates the lock, runtime manifest, and toolchain changelog together.
 
@@ -233,6 +235,7 @@ src-tauri\Tools\win-x64\yt-dlp\yt-dlp.exe
 src-tauri\Tools\win-x64\ffmpeg\bin\ffmpeg.exe
 src-tauri\Tools\win-x64\ffmpeg\bin\ffprobe.exe
 src-tauri\Tools\win-x64\deno\deno.exe
+src-tauri\Tools\win-x64\aria2c\aria2c.exe
 ```
 
 ## Verification
@@ -279,11 +282,11 @@ npm run tauri build
 
 ## Star History
 
-<a href="https://star-history.dera.page/#Chlience/yt-dlp-tauri&type=date&legend=top-left">
+<a href="https://star-history.dera.page/#damageboy/yt-dlp-tauri&type=date&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=Chlience/yt-dlp-tauri&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=Chlience/yt-dlp-tauri&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=Chlience/yt-dlp-tauri&type=date&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=damageboy/yt-dlp-tauri&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=damageboy/yt-dlp-tauri&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=damageboy/yt-dlp-tauri&type=date&legend=top-left" />
  </picture>
 </a>
 

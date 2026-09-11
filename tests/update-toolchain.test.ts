@@ -26,7 +26,9 @@ async function updateWorkspace(t) {
     manifestPath: join(root, "tools-manifest.json"),
     changelogPath: join(root, "TOOLCHAIN_CHANGELOG.md"),
   };
-  await writeFile(paths.policyPath, await readFile("toolchain-policy.json"));
+  const policy = JSON.parse(await readFile("toolchain-policy.json", "utf8"));
+  policy.sources = policy.sources.filter((source) => source.id !== "aria2");
+  await writeFile(paths.policyPath, JSON.stringify(policy));
   await writeFile(paths.manifestPath, await readFile("src-tauri/tools-manifest.json"));
   await writeFile(paths.changelogPath, await readFile("TOOLCHAIN_CHANGELOG.md"));
   return paths;

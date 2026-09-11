@@ -13,7 +13,7 @@ const DIGESTS = {
 };
 
 function targetReport(target: string, overrides = {}) {
-  const tools = ["yt-dlp", "ffprobe", "deno", "ffmpeg"].map((name, index) => ({
+  const tools = ["yt-dlp", "ffprobe", "deno", "ffmpeg", "aria2c"].map((name, index) => ({
     name,
     version: `1.${index}`,
   }));
@@ -58,7 +58,7 @@ function reportContext() {
     manifestSha256: DIGESTS.manifest,
     lockSha256: DIGESTS.lock,
     runId: "1234",
-    runUrl: "https://github.com/Chlience/yt-dlp-tauri/actions/runs/1234",
+    runUrl: "https://github.com/damageboy/yt-dlp-tauri/actions/runs/1234",
   };
 }
 
@@ -111,15 +111,15 @@ test("target report sorts tools, assets, and extracted hashes", () => {
 
   assert.deepEqual(
     report.tools.map((tool) => tool.name),
-    ["deno", "ffmpeg", "ffprobe", "yt-dlp"],
+    ["aria2c", "deno", "ffmpeg", "ffprobe", "yt-dlp"],
   );
   assert.deepEqual(
     report.assets.map((asset) => asset.sourceId),
-    ["deno", "ffmpeg", "ffprobe", "yt-dlp"],
+    ["aria2c", "deno", "ffmpeg", "ffprobe", "yt-dlp"],
   );
   assert.deepEqual(
     report.extractedHashes.map((hash) => hash.tool),
-    ["deno", "ffmpeg", "ffprobe", "yt-dlp"],
+    ["aria2c", "deno", "ffmpeg", "ffprobe", "yt-dlp"],
   );
 });
 
@@ -222,4 +222,10 @@ test("nullable asset identities must explicitly declare release and asset IDs", 
       }),
     /declare releaseId and assetId/u,
   );
+});
+
+
+test("publication target rejects a missing aria2c executable", () => {
+  const target = targetReport("win-x64");
+  assert.throws(() => targetReport("win-x64", {tools: target.tools.filter((tool) => tool.name !== "aria2c")}), /tools do not match/u);
 });

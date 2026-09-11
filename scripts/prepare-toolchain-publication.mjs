@@ -3,8 +3,8 @@ import { basename, dirname, join } from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
-const ARCHIVE_REPOSITORY = "Chlience/yt-dlp-tauri-toolchain";
-const SOURCE_REPOSITORY = "Chlience/yt-dlp-tauri";
+const ARCHIVE_REPOSITORY = "damageboy/yt-dlp-tauri";
+const SOURCE_REPOSITORY = "damageboy/yt-dlp-tauri";
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 
 const DEFAULTS = {
@@ -16,7 +16,6 @@ const DEFAULTS = {
   validationPath: ".toolchain/validation/toolchain-validation.json",
   compliancePath: ".toolchain/publication/toolchain-compliance.json",
   stableReleasePath: ".toolchain/remote/stable-release.json",
-  applicationReleasePath: ".toolchain/remote/application-release.json",
   revisionReleasePath: ".toolchain/remote/revision-release.json",
   historicalReleasesPath: ".toolchain/remote/historical-releases.json",
   outputDirectory: ".toolchain/publication",
@@ -236,7 +235,6 @@ export function parsePreparePublicationArgs(argv) {
     ["--validation", "validationPath"],
     ["--compliance", "compliancePath"],
     ["--stable-release", "stableReleasePath"],
-    ["--application-release", "applicationReleasePath"],
     ["--revision-release", "revisionReleasePath"],
     ["--historical-releases", "historicalReleasesPath"],
     ["--directory", "outputDirectory"],
@@ -266,7 +264,7 @@ async function readJson(path, label) {
 
 export async function prepareToolchainPublication(options = {}) {
   const args = { ...DEFAULTS, ...options };
-  const [policy, lock, candidateIndex, handoff, compliance, stableRelease, applicationRelease, revisionRelease, historicalReleases] =
+  const [policy, lock, candidateIndex, handoff, compliance, stableRelease, revisionRelease, historicalReleases] =
     await Promise.all([
       readJson(args.policyPath, "toolchain policy"),
       readJson(args.lockPath, "toolchain lock"),
@@ -274,7 +272,6 @@ export async function prepareToolchainPublication(options = {}) {
       readJson(args.handoffPath, "artifact handoff"),
       readJson(args.compliancePath, "compliance report"),
       readJson(args.stableReleasePath, "stable release"),
-      readJson(args.applicationReleasePath, "application release"),
       readJson(args.revisionReleasePath, "revision release"),
       readJson(args.historicalReleasesPath, "historical releases"),
     ]);
@@ -318,7 +315,6 @@ export async function prepareToolchainPublication(options = {}) {
         ? null
         : { ...revisionRelease, repository: ARCHIVE_REPOSITORY },
     stableRelease: { ...stableRelease, repository: ARCHIVE_REPOSITORY },
-    applicationRelease: { ...applicationRelease, repository: SOURCE_REPOSITORY },
     metadata: generated.metadata,
     changedSources: generated.changedSources,
   };

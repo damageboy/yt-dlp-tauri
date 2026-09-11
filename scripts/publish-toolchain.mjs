@@ -554,7 +554,7 @@ if (isDirectExecution()) {
   try {
     const cli = parseCliArguments(process.argv.slice(2));
     const input = JSON.parse(await readFile(cli.input, "utf8"));
-    const archiveMode = input.archiveRepository === "Chlience/yt-dlp-tauri-toolchain";
+    const archiveMode = input.archiveRepository === "damageboy/yt-dlp-tauri";
     const plan = archiveMode
       ? input.mode === "rollback"
         ? createArchiveRollbackPlan(input)

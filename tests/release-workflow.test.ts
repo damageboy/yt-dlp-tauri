@@ -47,3 +47,18 @@ test("release builds pin the Tauri application binary", () => {
   assert.match(packageSection, /^default-run = "yt-dlp-tauri"$/mu);
   assert.doesNotMatch(packageSection, /^default-run = "toolchain-smoke"$/mu);
 });
+
+test("Windows releases validate owned tools and real aria2 RPC before packaging", () => {
+  assert.match(workflow, /verify-windows-toolchain\.ps1/u);
+  assert.ok(workflow.indexOf("verify-windows-toolchain.ps1") < workflow.indexOf("- name: Build installer"));
+  const check = readFileSync("scripts/verify-windows-toolchain.ps1", "utf8");
+  assert.match(check, /damageboy\/yt-dlp-tauri\/releases\/download/u);
+  assert.match(check, /toolchain-smoke/u);
+  assert.match(check, /real_rpc_download_lifecycle/u);
+  assert.match(check, /--ignored/u);
+  assert.match(check, /"yt-dlp", "ffmpeg", "ffprobe", "deno", "aria2c"/u);
+  assert.match(check, /releases\/tags\/toolchain-\$\(\$manifest\.revision\)/u);
+  assert.match(check, /AddMinutes\(25\)/u);
+  assert.match(check, /Timed out waiting for owned toolchain publication/u);
+  assert.match(workflow, /GH_TOKEN: \$\{\{ github\.token \}\}/u);
+});

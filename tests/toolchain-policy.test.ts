@@ -9,7 +9,7 @@ import {
 
 const archive = {
   enabled: true,
-  repository: "Chlience/yt-dlp-tauri-toolchain",
+  repository: "damageboy/yt-dlp-tauri",
   assetNameTemplate: "{source}-{version}-{assetStem}-{sha256Prefix}{extension}",
 };
 
@@ -25,7 +25,7 @@ test("production policy covers every populated manifest target", () => {
   assert.deepEqual(policy.targets, ["win-x64"]);
   assert.deepEqual(
     policy.sources.map((source) => source.id),
-    ["yt-dlp", "deno", "ffmpeg-windows"],
+    ["yt-dlp", "deno", "ffmpeg-windows", "aria2"],
   );
   assert.equal(sourceById(policy, "deno").repository, "denoland/deno");
   assert.deepEqual(sourceById(policy, "deno").redistribution.licenseFiles, [

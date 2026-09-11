@@ -21,7 +21,7 @@ pub use activation::{
 };
 pub(crate) use channel::{
     parse_channel_record, select_revision_manifest_asset, sha256_bytes, verify_channel_manifest,
-    GitHubRelease,
+    ChannelRecord, GitHubRelease, ARCHIVE_REPOSITORY,
 };
 pub use homebrew::{
     check_homebrew_updates, locate_homebrew, probe_homebrew_toolchain,

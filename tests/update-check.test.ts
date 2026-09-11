@@ -12,14 +12,14 @@ test("compareVersions handles v-prefixed semantic versions", () => {
 test("getUpdateStatus reports an available GitHub release", () => {
   const status = getUpdateStatus("0.1.0", {
     tagName: "v0.2.0",
-    releaseUrl: "https://github.com/Chlience/yt-dlp-tauri/releases/tag/v0.2.0",
+    releaseUrl: "https://github.com/damageboy/yt-dlp-tauri/releases/tag/v0.2.0",
   });
 
   assert.deepEqual(status, {
     kind: "available",
     currentVersion: "0.1.0",
     latestVersion: "0.2.0",
-    releaseUrl: "https://github.com/Chlience/yt-dlp-tauri/releases/tag/v0.2.0",
+    releaseUrl: "https://github.com/damageboy/yt-dlp-tauri/releases/tag/v0.2.0",
   });
 });
 
@@ -28,27 +28,27 @@ test("parseLatestRelease rejects incomplete GitHub responses", () => {
   assert.deepEqual(
     parseLatestRelease({
       tag_name: "v0.2.0",
-      html_url: "https://github.com/Chlience/yt-dlp-tauri/releases/tag/v0.2.0",
+      html_url: "https://github.com/damageboy/yt-dlp-tauri/releases/tag/v0.2.0",
     }),
     {
       tagName: "v0.2.0",
-      releaseUrl: "https://github.com/Chlience/yt-dlp-tauri/releases/tag/v0.2.0",
+      releaseUrl: "https://github.com/damageboy/yt-dlp-tauri/releases/tag/v0.2.0",
     },
   );
 });
 
 test("resolveGithubUrl can route GitHub URLs through gh-proxy", () => {
   assert.equal(
-    resolveGithubUrl("https://github.com/Chlience/yt-dlp-tauri/releases", "direct"),
-    "https://github.com/Chlience/yt-dlp-tauri/releases",
+    resolveGithubUrl("https://github.com/damageboy/yt-dlp-tauri/releases", "direct"),
+    "https://github.com/damageboy/yt-dlp-tauri/releases",
   );
   assert.equal(
-    resolveGithubUrl("https://github.com/Chlience/yt-dlp-tauri/releases", "gh-proxy"),
-    "https://gh-proxy.com/https://github.com/Chlience/yt-dlp-tauri/releases",
+    resolveGithubUrl("https://github.com/damageboy/yt-dlp-tauri/releases", "gh-proxy"),
+    "https://gh-proxy.com/https://github.com/damageboy/yt-dlp-tauri/releases",
   );
   assert.equal(
-    resolveGithubUrl("https://api.github.com/repos/Chlience/yt-dlp-tauri/releases/latest", "gh-proxy"),
-    "https://gh-proxy.com/https://api.github.com/repos/Chlience/yt-dlp-tauri/releases/latest",
+    resolveGithubUrl("https://api.github.com/repos/damageboy/yt-dlp-tauri/releases/latest", "gh-proxy"),
+    "https://gh-proxy.com/https://api.github.com/repos/damageboy/yt-dlp-tauri/releases/latest",
   );
 });
 

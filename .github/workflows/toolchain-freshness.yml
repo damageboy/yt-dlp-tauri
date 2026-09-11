@@ -14,6 +14,7 @@ on:
           - auto
           - yt-dlp
           - deno
+          - aria2
           - ffmpeg-windows
       reason:
         description: Compatibility or security reason
@@ -81,6 +82,10 @@ jobs:
           fi
 
   emergency:
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
     needs: detect
     if: needs.detect.outputs.has_sources == 'true'
     runs-on: ubuntu-latest
@@ -92,20 +97,11 @@ jobs:
         source: ${{ fromJSON(needs.detect.outputs.sources) }}
 
     steps:
-      - name: Create bot token
-        id: app_token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
-        with:
-          client-id: ${{ secrets.TOOLCHAIN_BOT_CLIENT_ID }}
-          private-key: ${{ secrets.TOOLCHAIN_BOT_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ github.event.repository.name }}
-
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
           fetch-depth: 0
-          token: ${{ steps.app_token.outputs.token }}
+          token: ${{ github.token }}
 
       - name: Setup Node
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
@@ -119,7 +115,7 @@ jobs:
       - name: Resolve focused candidate
         id: update
         env:
-          GITHUB_TOKEN: ${{ steps.app_token.outputs.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           summary="$(node scripts/update-toolchain.mjs --only "${{ matrix.source }}")"
@@ -138,7 +134,7 @@ jobs:
       - name: Verify repaired source
         if: steps.update.outputs.changed == 'true'
         env:
-          GITHUB_TOKEN: ${{ steps.app_token.outputs.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           node scripts/check-toolchain-freshness.mjs --json-output repaired-freshness.json || true
@@ -150,7 +146,7 @@ jobs:
       - name: Push emergency candidate branch
         if: steps.update.outputs.changed == 'true'
         env:
-          APP_SLUG: ${{ steps.app_token.outputs['app-slug'] }}
+          APP_SLUG: github-actions
         run: |
           set -euo pipefail
           branch="bot/toolchain-emergency-${{ matrix.source }}"
@@ -166,7 +162,7 @@ jobs:
       - name: Create or update emergency pull request
         if: steps.update.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           REVISION: ${{ steps.update.outputs.revision }}
           PR_REASON: ${{ github.event.inputs.reason || '' }}
@@ -178,11 +174,13 @@ jobs:
           body_file="$RUNNER_TEMP/toolchain-emergency.md"
           printf '## Emergency toolchain candidate\n\n- Source: `%s`\n- Revision: `%s`\n- Reason: %s\n\nThis PR requires the normal compatibility gates and maintainer review.\n' \
             "$source_id" "$REVISION" "$reason" > "$body_file"
-          pr_number="$(gh pr list --repo "$GH_REPO" --base main --head "$branch" --state open --json number --jq '.[0].number // ""')"
+          pr_number="$(gh pr list --repo "$GH_REPO" --base master --head "$branch" --state open --json number --jq '.[0].number // ""')"
           if [ -z "$pr_number" ]; then
-            gh pr create --repo "$GH_REPO" --base main --head "$branch" \
+            gh pr create --repo "$GH_REPO" --base master --head "$branch" \
               --title "chore: refresh ${source_id} toolchain source" --body-file "$body_file"
           else
             gh pr edit "$pr_number" --repo "$GH_REPO" \
               --title "chore: refresh ${source_id} toolchain source" --body-file "$body_file"
           fi
+          pr_number="$(gh pr list --repo "$GH_REPO" --base master --head "$branch" --state open --json number --jq '.[0].number')"
+          gh workflow run toolchain-validate.yml --repo "$GH_REPO" --ref "$branch" -f pull_request="$pr_number"

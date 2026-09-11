@@ -26,7 +26,7 @@
           "size": 30,
           "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "archive": {
-            "repository": "Chlience/yt-dlp-tauri-toolchain",
+            "repository": "damageboy/yt-dlp-tauri",
             "releaseTag": "toolchain-20260710.3",
             "assetName": "ffmpeg-windows-autobuild-2026-06-30-16-38-ffmpeg-N-125200-gabcdef1234-win64-gpl-bbbbbbbbbbbbbbbb.zip",
             "size": 30,
@@ -75,7 +75,7 @@
           "size": 3,
           "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "archive": {
-            "repository": "Chlience/yt-dlp-tauri-toolchain",
+            "repository": "damageboy/yt-dlp-tauri",
             "releaseTag": "toolchain-20260710.3",
             "assetName": "yt-dlp-2026.07.04-yt-dlp-aaaaaaaaaaaaaaaa.exe",
             "size": 3,

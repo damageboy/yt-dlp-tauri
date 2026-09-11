@@ -77,7 +77,7 @@ test("freshness attributes a mirrored runtime URL to its lock source", async () 
   const windows = manifest.targets.find((target) => target.target === "win-x64");
   for (const tool of windows.tools.filter((item) => item.name.startsWith("ff"))) {
     tool.sourceUrl =
-      "https://github.com/Chlience/yt-dlp-tauri/releases/download/toolchain-stable/ffmpeg-win.zip";
+      "https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-stable/ffmpeg-win.zip";
   }
   const result = await evaluateToolchainFreshness(lock, manifest, async (url) => ({
     ok: !url.includes("toolchain-stable"),
