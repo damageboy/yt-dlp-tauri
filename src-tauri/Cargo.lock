@@ -5344,6 +5344,7 @@ dependencies = [
 name = "yt-dlp-tauri"
 version = "0.1.13"
 dependencies = [
+ "getrandom 0.4.2",
  "reqwest",
  "rustls",
  "serde",

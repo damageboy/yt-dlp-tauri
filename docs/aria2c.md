@@ -41,14 +41,14 @@ The backend snapshots saved configuration when a download starts. It requires a 
 --downloader
 <absolute aria2c executable>
 --downloader-args
-aria2c:-j N -x N -s N
+aria2c:-j N -x N -s N --enable-rpc=true --rpc-listen-all=false --rpc-listen-port=PORT --rpc-secret=TOKEN --stop-with-process=APP_PID
 ```
 
 Arguments never pass through a shell. No raw argument field is provided. The same N sets concurrent items (`-j`), connections per server per item (`-x`) and splits (`-s`); this is not a total connection cap or an application-level video queue. yt-dlp can print its defaults before the overriding arguments; the generated user overrides still apply.
 
 Metadata extraction verifies required aria2c availability without adding downloader arguments. Disabled downloads retain their previous arguments. Protocol eligibility remains with yt-dlp, so enabling aria2c does not prove every selected format uses it. Existing indeterminate progress remains available when numeric updates are absent.
 
-Unix downloads own a process group. Cancellation signals TERM, waits up to two seconds, then uses KILL if members remain. Windows retains `taskkill /T /F`. Cancellation and spawn registration share a mutex, as do cancellation and the final completion decision. The group stays registered during cancellation cleanup.
+Unix downloads own a process group. Cancellation signals TERM, waits up to two seconds, then uses KILL if members remain. Windows enumerates descendants and uses `taskkill /T /F`, including when the parent has already exited. Cancellation and spawn registration share a mutex, as do cancellation and the final completion decision. The group stays registered during cancellation cleanup.
 
 ## Verification
 
@@ -90,3 +90,23 @@ Correction verification: 208 frontend tests and 109 Rust tests (106 library, 2 b
 Removed the standalone downloader section and duplicate executable/status controls. Usage and parallelism remain under Toolchain. Custom executable selection saves only the path, preserving unsaved usage options; the shared Use PATH resets it. Managed Homebrew uses its own aria2c regardless of legacy custom overrides.
 
 Verification: 208 frontend tests, 110 Rust tests (107 library, 2 binary, 1 integration), production build, formatting and Clippy pass. Independent review passed. Rebuilt and reopened the release app; native Settings confirms the consolidated controls and all five required executables available with usage off.
+
+### RPC progress (2026-09-11)
+
+Enabled downloads use an available loopback port and fresh 256-bit OS-random token per application download. The Rust download worker polls aria2c HTTP JSON-RPC at a target interval of 250 ms. Requests bypass proxies and redirects, have one-second timeouts and 1 MiB response limits; each polling cycle has a two-second network deadline. Waiting/stopped queue pages rotate across cycles so large fragment queues cannot monopolize the worker. Tokens are not saved, sent to the UI or included in captured stderr diagnostics.
+
+The existing progress event/UI receives percentage, speed and ETA from RPC while aria2c is active. The yt-dlp parser remains active for native fallback and final output paths. Unknown sizes or incomplete fragment history produce indeterminate percentage with available speed. A percentage describes the current aria2c invocation, not the combined video/audio/postprocessing job.
+
+RPC-enabled aria2c stays alive after finishing. The monitor authenticates each session, waits for terminal work and empty active/waiting queues, rechecks, then requests graceful shutdown. It reconnects for later audio/video transfers and retries. yt-dlp's final exit remains the authority for operation success. Merge/postprocessing reporting is unchanged.
+
+A connected RPC session gets a ten-second retry window; timeouts do not become an unlimited wait after shutdown. A closed listener is expected between subprocesses. Cancellation blocks further progress updates and terminates the process tree. RPC failure and nonzero parent exit clean descendants before output-reader joins, avoiding hangs from inherited pipes.
+
+Automated coverage includes progress arithmetic, unknown totals, malformed/oversized replies, authentication, secret redaction, stopped-history eviction, bounded queue pagination, session changes, shutdown timeouts, slow extraction and parent-exit cleanup. Windows descendant selection is tested with a synthetic process graph; native Windows cleanup remains unverified.
+
+Run the optional real-tool integration test with yt-dlp, aria2c, FFmpeg, ffprobe and python3 on PATH:
+
+```sh
+cargo test --manifest-path src-tauri/Cargo.toml --lib real_rpc_download_lifecycle -- --ignored --nocapture
+```
+
+The test generates disposable local media and exercises native downloading, aria2c HTTP, separate video/audio plus merge (checked with ffprobe), HLS, native fallback with aria2c enabled, unknown-length HTTP, HTTP 404, broken fragments, fragment retry recovery, cancellation and fast completion. It checks process/listener cleanup. These are backend integration tests, not a native UI test or a Windows runtime test.

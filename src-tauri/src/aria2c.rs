@@ -131,6 +131,7 @@ pub fn require_aria2c(config: &Aria2cConfig) -> Result<Aria2cStatus, String> {
 pub fn aria2c_downloader_args(
     config: &Aria2cConfig,
     status: &Aria2cStatus,
+    rpc: Option<&crate::aria2c_rpc::RpcConfig>,
 ) -> Result<Vec<OsString>, String> {
     config.validate()?;
     if !config.enabled {
@@ -146,11 +147,16 @@ pub fn aria2c_downloader_args(
         .as_ref()
         .ok_or("aria2c has no resolved executable.")?;
     let n = config.parallel_connections;
+    let mut options = format!("aria2c:-j {n} -x {n} -s {n}");
+    if let Some(rpc) = rpc {
+        options.push(' ');
+        options.push_str(&rpc.arguments());
+    }
     Ok(vec![
         "--downloader".into(),
         path.as_os_str().to_owned(),
         "--downloader-args".into(),
-        format!("aria2c:-j {n} -x {n} -s {n}").into(),
+        options.into(),
     ])
 }
 
@@ -401,7 +407,7 @@ impl Aria2cState {
         } else {
             Aria2cStatus::default()
         };
-        aria2c_downloader_args(&config, &status)?;
+        aria2c_downloader_args(&config, &status, None)?;
         let path = self
             .path
             .as_ref()
@@ -607,7 +613,7 @@ mod tests {
             ..missing
         };
         let status = require_aria2c(&available).unwrap();
-        assert!(aria2c_downloader_args(&available, &status)
+        assert!(aria2c_downloader_args(&available, &status, None)
             .unwrap()
             .is_empty());
         assert_eq!(status.tool_status().availability, "available");
@@ -710,7 +716,7 @@ mod tests {
                 ..Default::default()
             };
             assert_eq!(
-                aria2c_downloader_args(&config, &status).unwrap(),
+                aria2c_downloader_args(&config, &status, None).unwrap(),
                 vec![
                     OsString::from("--downloader"),
                     path.as_os_str().to_owned(),
@@ -722,10 +728,10 @@ mod tests {
                     }),
                 ]
             );
-            assert!(aria2c_downloader_args(&config, &Aria2cStatus::default()).is_err());
+            assert!(aria2c_downloader_args(&config, &Aria2cStatus::default(), None).is_err());
         }
         assert!(
-            aria2c_downloader_args(&Aria2cConfig::default(), &Aria2cStatus::default())
+            aria2c_downloader_args(&Aria2cConfig::default(), &Aria2cStatus::default(), None)
                 .unwrap()
                 .is_empty()
         );

@@ -23,6 +23,10 @@ fn main() {
             let mut child = Command::new(&exe).arg("child").spawn().unwrap();
             let _ = child.wait();
         }
+        "orphan" => {
+            let _child = Command::new(&exe).arg("child").spawn().unwrap();
+            exit(2);
+        }
         "capture" => {
             for arg in args { println!("{arg}"); }
         }

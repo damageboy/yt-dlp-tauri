@@ -17,7 +17,11 @@ use std::{
 use tauri::{AppHandle, Emitter, Manager};
 
 mod aria2c;
+mod aria2c_rpc;
+#[cfg(any(windows, test))]
+mod windows_process_tree;
 use aria2c::{Aria2cConfig, Aria2cSettings, Aria2cState, ARIA2C_CONFIG_FILE};
+use aria2c_rpc::{ProgressRouter, RpcConfig, RpcMonitor};
 #[cfg(test)]
 mod test_support;
 pub mod toolchain;
@@ -180,6 +184,7 @@ struct ActiveDownload {
     running: bool,
     pid: Option<u32>,
     cancel_requested: bool,
+    progress: Option<Arc<ProgressRouter>>,
 }
 
 struct DownloadGuard {
@@ -651,7 +656,11 @@ async fn download_video(
     tauri::async_runtime::spawn_blocking(move || {
         let aria2c_config = active_aria2c_config(&aria2c_config)?;
         let status = aria2c::require_aria2c(&aria2c_config)?;
-        let aria2c_args = aria2c::aria2c_downloader_args(&aria2c_config, &status)?;
+        let rpc_config = aria2c_config.enabled.then(RpcConfig::new).transpose()?;
+        let aria2c_args =
+            aria2c::aria2c_downloader_args(&aria2c_config, &status, rpc_config.as_ref())?;
+        let mut rpc_monitor = rpc_config.clone().map(RpcMonitor::new).transpose()?;
+        let progress_router = Arc::new(ProgressRouter::default());
         let platform = current_platform_definition()?;
         validate_http_url(&request.url)?;
         let tools = locate_tools(&app, &platform)?;
@@ -688,6 +697,7 @@ async fn download_video(
             })?;
         let pid = child.id();
         active.pid = Some(pid);
+        active.progress = Some(Arc::clone(&progress_router));
         drop(active);
 
         emit_progress(
@@ -706,11 +716,12 @@ async fn download_video(
 
         let stdout_handle = child.stdout.take().map(|stdout| {
             let app = app.clone();
+            let progress_router = Arc::clone(&progress_router);
             let output_path = Arc::clone(&output_path);
             thread::spawn(move || {
                 for line in BufReader::new(stdout).lines().map_while(Result::ok) {
                     if let Some(progress) = parse_progress_line(&line) {
-                        emit_progress(&app, progress);
+                        progress_router.native(progress, |progress| emit_progress(&app, progress));
                     }
 
                     if let Some(path) = line.strip_prefix(OUTPUT_PATH_PREFIX) {
@@ -727,13 +738,23 @@ async fn download_video(
             thread::spawn(move || {
                 for line in BufReader::new(stderr).lines().map_while(Result::ok) {
                     if let Ok(mut guard) = stderr_lines.lock() {
-                        guard.push(line);
+                        guard.push(
+                            rpc_config
+                                .as_ref()
+                                .map_or_else(|| line.clone(), |config| config.redact(&line)),
+                        );
                     }
                 }
             })
         });
 
-        let status = child.wait().map_err(to_string)?;
+        let status = wait_for_download(
+            &mut child,
+            rpc_monitor.as_mut(),
+            &progress_router,
+            |progress| emit_progress(&app, progress),
+        );
+        progress_router.stop();
         if let Some(handle) = stdout_handle {
             let _ = handle.join();
         }
@@ -745,6 +766,7 @@ async fn download_video(
             append_log("download", "Cancelled by user.");
             return Err("Download cancelled.".into());
         }
+        let status = status.inspect_err(|error| append_log("download", error))?;
         if !status.success() {
             let details = stderr_lines
                 .lock()
@@ -784,6 +806,39 @@ async fn download_video(
     .map_err(join_error)?
 }
 
+fn wait_for_download(
+    child: &mut std::process::Child,
+    monitor: Option<&mut RpcMonitor>,
+    router: &ProgressRouter,
+    emit: impl Fn(DownloadProgress),
+) -> Result<std::process::ExitStatus, String> {
+    let result = (|| {
+        let Some(monitor) = monitor else {
+            return child.wait().map_err(to_string);
+        };
+        loop {
+            if let Some(status) = child.try_wait().map_err(to_string)? {
+                return Ok(status);
+            }
+            let progress = monitor.poll()?;
+            router.rpc(monitor.active(), progress, &emit);
+            thread::sleep(std::time::Duration::from_millis(250));
+        }
+    })();
+    if !result.as_ref().is_ok_and(std::process::ExitStatus::success) {
+        router.stop();
+        let pid = child.id();
+        // Reap concurrently so group cleanup does not wait on our own zombie child.
+        // A nonzero parent exit can also leave aria2c holding the output pipes open.
+        let cleanup = thread::spawn(move || kill_process_tree(pid));
+        let _ = child.wait();
+        if let Ok(Err(error)) = cleanup.join() {
+            append_log("download", &format!("Process cleanup failed: {error}"));
+        }
+    }
+    result
+}
+
 #[tauri::command]
 async fn cancel_download(
     process_state: tauri::State<'_, DownloadProcessState>,
@@ -801,6 +856,9 @@ fn request_download_cancel(state: &DownloadProcessState) -> Result<(), String> {
         return Ok(());
     }
     active.cancel_requested = true;
+    if let Some(progress) = &active.progress {
+        progress.stop();
+    }
     if let Some(pid) = active.pid {
         kill_process_tree(pid)?;
     }
@@ -1693,18 +1751,7 @@ fn kill_process_tree(pid: u32) -> Result<(), String> {
     }
     #[cfg(windows)]
     {
-        let output = background_command("taskkill")
-            .args(["/PID", &pid.to_string(), "/T", "/F"])
-            .output()
-            .map_err(to_string)?;
-        if !output.status.success() {
-            return Err(process_failure_message(
-                "Failed to cancel download.",
-                output.status.code(),
-                &output.stderr,
-                &output.stdout,
-            ));
-        }
+        windows_process_tree::kill(pid)?;
     }
     #[cfg(unix)]
     {
