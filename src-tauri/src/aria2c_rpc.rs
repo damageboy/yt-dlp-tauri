@@ -72,7 +72,14 @@ impl RpcMonitor {
     }
     pub(crate) fn poll(&mut self) -> Result<Option<DownloadProgress>, String> {
         self.poll_deadline = Instant::now() + Duration::from_secs(2);
-        match self.poll_session() {
+        let result = self.poll_session();
+        self.handle_poll_result(result)
+    }
+    fn handle_poll_result(
+        &mut self,
+        result: Result<Option<DownloadProgress>, RpcError>,
+    ) -> Result<Option<DownloadProgress>, String> {
+        match result {
             Ok(progress) => {
                 self.last_success = Instant::now();
                 Ok(progress)

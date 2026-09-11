@@ -327,14 +327,19 @@ fn absent_rpc_is_normal_before_connection_but_not_after_an_active_session() {
         secret: "test-secret".into(),
     })
     .unwrap();
-    // Windows can take over one second to report a refused loopback connection.
-    monitor.request_timeout = Duration::from_secs(2);
     assert!(monitor.poll().unwrap().is_none());
     monitor.session = Some("connected".into());
     monitor.last_success = Instant::now() - Duration::from_secs(20);
     assert!(monitor.poll().is_err());
     monitor.shutdown_since = Some(Instant::now());
-    assert!(monitor.poll().unwrap().is_none());
+    // Exercise refusal policy independently of OS-specific closed-port timing.
+    assert!(monitor
+        .handle_poll_result(Err(RpcError::Disconnected))
+        .unwrap()
+        .is_none());
+    assert!(monitor
+        .handle_poll_result(Err(RpcError::Unavailable))
+        .is_err());
 }
 
 #[test]
