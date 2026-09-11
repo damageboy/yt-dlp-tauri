@@ -13,6 +13,31 @@ foreach ($name in $required) {
     }
 }
 
+# The same master push can publish this revision while app builds are already running.
+$releaseApi = "https://api.github.com/repos/damageboy/yt-dlp-tauri/releases/tags/toolchain-$($manifest.revision)"
+$headers = @{ Accept = "application/vnd.github+json"; "User-Agent" = "yt-dlp-tauri-release" }
+if ($env:GH_TOKEN) { $headers.Authorization = "Bearer $env:GH_TOKEN" }
+$manifestDigest = (Get-FileHash "src-tauri/tools-manifest.json" -Algorithm SHA256).Hash.ToLowerInvariant()
+$deadline = [DateTime]::UtcNow.AddMinutes(25)
+while ($true) {
+    $response = Invoke-WebRequest -Uri $releaseApi -Headers $headers -SkipHttpErrorCheck -TimeoutSec 30
+    if ($response.StatusCode -eq 200) {
+        $release = $response.Content | ConvertFrom-Json
+        if (!$release.draft) {
+            $assets = @($release.assets | Where-Object { $_.name -eq "tools-manifest-$($manifest.revision).json" })
+            if (!$release.prerelease -or $assets.Count -ne 1 -or $assets[0].digest -ne "sha256:$manifestDigest") {
+                throw "Published toolchain manifest does not match this app build"
+            }
+            break
+        }
+    } elseif ($response.StatusCode -ne 404 -and $response.StatusCode -lt 500) {
+        throw "Toolchain release lookup failed: HTTP $($response.StatusCode)"
+    }
+    if ([DateTime]::UtcNow -ge $deadline) { throw "Timed out waiting for owned toolchain publication" }
+    Write-Host "Waiting for owned toolchain $($manifest.revision) publication..."
+    Start-Sleep -Seconds 20
+}
+
 $root = Join-Path ([System.IO.Path]::GetTempPath()) ("owned-toolchain-" + [guid]::NewGuid())
 $originalPath = $env:PATH
 try {

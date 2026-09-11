@@ -57,4 +57,8 @@ test("Windows releases validate owned tools and real aria2 RPC before packaging"
   assert.match(check, /real_rpc_download_lifecycle/u);
   assert.match(check, /--ignored/u);
   assert.match(check, /"yt-dlp", "ffmpeg", "ffprobe", "deno", "aria2c"/u);
+  assert.match(check, /releases\/tags\/toolchain-\$\(\$manifest\.revision\)/u);
+  assert.match(check, /AddMinutes\(25\)/u);
+  assert.match(check, /Timed out waiting for owned toolchain publication/u);
+  assert.match(workflow, /GH_TOKEN: \$\{\{ github\.token \}\}/u);
 });

@@ -122,6 +122,8 @@ jobs:
       - name: Verify owned Windows toolchain and aria2 RPC
         if: runner.os == 'Windows'
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: ./scripts/verify-windows-toolchain.ps1
 
       - name: Build installer
