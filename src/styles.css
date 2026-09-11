@@ -1014,11 +1014,11 @@ progress::-webkit-progress-value {
   gap: 10px;
 }
 .aria2c-toggle input { width: 18px; height: 18px; min-height: 18px; }
-.aria2c-path-row { display: grid; gap: 6px; margin: 12px 0; }
-.aria2c-path-row code { overflow-wrap: anywhere; font-size: 0.8rem; }
-.aria2c-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .aria2c-parallel-row { display: grid; grid-template-columns: 1fr 80px; align-items: center; gap: 12px; }
 .aria2c-help, .aria2c-status { color: var(--muted); font-size: 0.82rem; line-height: 1.5; overflow-wrap: anywhere; }
-.aria2c-status { min-height: 24px; }
 .aria2c-status.is-error { color: var(--danger); }
 .aria2c-parallel-row input[aria-invalid="true"] { border-color: var(--danger); }
+
+.aria2c-options { display: grid; gap: 12px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--stroke); }
+
+.aria2c-options > button { justify-self: start; }

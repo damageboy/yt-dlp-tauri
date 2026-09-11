@@ -1,6 +1,6 @@
 # Required aria2c tool with optional download usage
 
-Settings offers an off-by-default aria2c downloader, executable selection/automatic discovery, status refresh, and integer parallelism from 1 to 16. aria2c is always required. Homebrew manages the `aria2` formula through the same install, version verification, update and reinstall actions as other required tools. Custom setups and current Windows archives require a configured or PATH executable. The usage switch never changes installation requirements.
+Settings → Toolchain contains the off-by-default Use aria2c toggle and integer parallelism from 1 to 16. Tool installation, paths and verification share the existing Toolchain controls. aria2c is always required. Homebrew manages the `aria2` formula through the same install, version verification, update and reinstall actions as other required tools. Custom setups and current Windows archives require a configured or PATH executable. The usage switch never changes installation requirements.
 
 ## State and validation
 
@@ -17,9 +17,11 @@ The existing application data directory contains `state/aria2c.json`:
 
 Rust rejects unsupported schemas, unknown fields, relative selected paths and invalid numbers. Missing state uses defaults; malformed state uses disabled defaults and reports its load error. A successful save writes a same-directory temporary file, syncs it, and atomically replaces the destination before updating memory. Failed validation or replacement preserves the previous saved state.
 
-The frontend keeps a draft. Selecting a file, Use PATH and Refresh inspect without saving. Failed saves retain edits, unrelated AppState refreshes preserve dirty drafts, and old inspection responses cannot overwrite newer drafts. English and Chinese copy describe the same controls.
+The frontend keeps a draft for usage and parallelism until Save. Selecting a custom executable saves immediately; the shared Use PATH resets executable overrides. Failed saves retain edits, and unrelated AppState refreshes preserve dirty drafts. English and Chinese copy describe the same controls.
 
 ## Discovery
+
+Managed Homebrew mode always uses its resolved prefix plus `bin/aria2c`; legacy custom overrides cannot affect managed operation. Custom toolchains and Windows use the following discovery order:
 
 1. Explicit absolute path, when set. Its failure is authoritative.
 2. Executable candidates in inherited PATH; relative PATH entries resolve against the working directory.
@@ -29,7 +31,7 @@ The frontend keeps a draft. Selecting a file, Use PATH and Refresh inspect witho
 
 Windows selects `aria2c.exe`; Unix selects `aria2c`. Automatic discovery skips non-executable files. Keep symlink invocation names intact because yt-dlp identifies the external downloader by basename. The version probe must succeed and identify aria2. Both version probing and Homebrew prefix queries have ten-second deadlines; timeout terminates and reaps the probe.
 
-AppState retrieval does not probe aria2c. Startup tool verification, explicit Settings inspection, enabled Save, metadata preflight and every download verify aria2c, regardless of the usage switch. Disabled saves remain possible to repair settings; saving refreshes tool readiness, which stays incomplete until the executable is available.
+AppState retrieval does not probe aria2c. Startup tool verification, Verify tools, enabled Save, metadata preflight and every download verify aria2c, regardless of the usage switch. Disabled saves remain possible to repair settings; saving refreshes tool readiness, which stays incomplete until the executable is available.
 
 ## Download lifecycle
 
@@ -60,7 +62,7 @@ cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 ```
 
-Rust tests use temporary native executables without requiring aria2c. They cover version validation, Homebrew timeout, path discovery, save/reload/recovery, command construction, early/late cancellation, and TERM-resistant child cleanup on Unix. Frontend tests cover invalid inputs, failed saves, dirty drafts and reversed inspection responses.
+Rust tests use temporary native executables without requiring aria2c. They cover version validation, Homebrew timeout, path discovery, save/reload/recovery, command construction, early/late cancellation, and TERM-resistant child cleanup on Unix. Frontend tests cover invalid inputs, failed saves, dirty drafts.
 
 Native acceptance uses an isolated app state directory and a controlled HTTP range server. Compare the downloaded file's checksum with the source for N=1 and N=16, capture the actual aria2c invocation, cancel an active transfer and check that both processes exit, then start another transfer. Also verify saving, restarting, missing-executable recovery, both languages and Finder-style PATH discovery. A native Windows run is required to claim Windows process behavior verified.
 
@@ -82,3 +84,9 @@ All native UI tests used a disposable application state directory and local medi
 The required-tool rule supersedes the original optional-installation design. Homebrew missing-formula installation and update mapping have regression tests. The native Settings check shows aria2c in the required tool list with usage off. Missing configured executables block readiness regardless of usage; repairing and saving settings refreshes readiness. Windows archive delivery is a separate pending distribution decision; this change requires a configured executable there without claiming the existing archives contain it.
 
 Correction verification: 208 frontend tests and 109 Rust tests (106 library, 2 binary, 1 integration) pass; build, formatting and Clippy with warnings denied pass. Native Homebrew Settings verifies all five executables with usage off. An unavailable configured aria2c blocks readiness, and Use PATH + Save restores readiness without enabling usage. No package installation is suggested for a configuration-only failure. Independent review passed after that remediation fix.
+
+### Toolchain UI consolidation (2026-09-11)
+
+Removed the standalone downloader section and duplicate executable/status controls. Usage and parallelism remain under Toolchain. Custom executable selection saves only the path, preserving unsaved usage options; the shared Use PATH resets it. Managed Homebrew uses its own aria2c regardless of legacy custom overrides.
+
+Verification: 208 frontend tests, 110 Rust tests (107 library, 2 binary, 1 integration), production build, formatting and Clippy pass. Independent review passed. Rebuilt and reopened the release app; native Settings confirms the consolidated controls and all five required executables available with usage off.

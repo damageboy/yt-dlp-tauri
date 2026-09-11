@@ -390,11 +390,7 @@ impl Aria2cState {
         Ok(self.settings()?.config)
     }
 
-    pub fn save(&self, config: Aria2cConfig) -> Result<Aria2cSettings, String> {
-        self.save_with(config, inspect_aria2c)
-    }
-
-    fn save_with(
+    pub(crate) fn save_with(
         &self,
         config: Aria2cConfig,
         inspect: impl FnOnce(&Aria2cConfig) -> Result<Aria2cStatus, String>,

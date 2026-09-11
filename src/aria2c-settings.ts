@@ -36,19 +36,15 @@ export class Aria2cSettingsDraft {
   saved = defaultAria2cSettings();
   config = { ...this.saved.config };
   parallelInput = "16";
-  status = { ...this.saved.status };
   dirty = false;
-  inspecting = false;
   private generation = 0;
 
   applySaved(settings: Aria2cSettings) {
     this.saved = structuredClone(settings);
     if (this.dirty) return;
     this.generation++;
-    this.inspecting = false;
     this.config = { ...settings.config };
     this.parallelInput = String(settings.config.parallelConnections);
-    this.status = { ...settings.status };
   }
 
   edit(patch: Partial<Aria2cConfig>, parallelInput = this.parallelInput) {
@@ -56,8 +52,6 @@ export class Aria2cSettingsDraft {
     this.parallelInput = parallelInput;
     this.dirty = true;
     this.generation++;
-    this.inspecting = false;
-    this.status = defaultAria2cSettings().status;
   }
 
   validatedConfig(): Aria2cConfig {
@@ -66,26 +60,16 @@ export class Aria2cSettingsDraft {
     return { ...this.config, parallelConnections };
   }
 
-  async inspect(run: (config: Aria2cConfig) => Promise<Aria2cStatus>) {
-    const config = this.validatedConfig();
-    const generation = ++this.generation;
-    this.inspecting = true;
-    try {
-      const status = await run(config);
-      if (generation === this.generation) this.status = status;
-    } catch (error) {
-      if (generation === this.generation) {
-        this.status = { ...defaultAria2cSettings().status, errorCode: "probe-failed", error: String(error) };
-      }
-    } finally {
-      if (generation === this.generation) this.inspecting = false;
-    }
+  async saveExecutablePath(executablePath: string | null, run: (config: Aria2cConfig) => Promise<Aria2cSettings>) {
+    const settings = await run({ ...this.saved.config, executablePath });
+    this.config = { ...this.config, executablePath: settings.config.executablePath };
+    this.applySaved(settings);
+    return settings;
   }
 
   async save(run: (config: Aria2cConfig) => Promise<Aria2cSettings>) {
     const config = this.validatedConfig();
     const generation = ++this.generation;
-    this.inspecting = false;
     const settings = await run(config);
     this.saved = structuredClone(settings);
     if (generation === this.generation) {

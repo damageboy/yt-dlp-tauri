@@ -6,3 +6,5 @@
 - [x] Update English/Chinese UI and setup documentation.
 - [x] Native missing-executable/recovery checks and independent review passed. 208 frontend tests, 109 Rust tests, production build, formatting and Clippy passed.
 - [ ] Resolve Windows managed-distribution choice.
+
+- [x] Remove standalone aria2c setup; consolidate usage and custom paths into Toolchain. Managed Homebrew ignores legacy custom overrides.

@@ -17,7 +17,7 @@ use std::{
 use tauri::{AppHandle, Emitter, Manager};
 
 mod aria2c;
-use aria2c::{Aria2cConfig, Aria2cSettings, Aria2cState, Aria2cStatus, ARIA2C_CONFIG_FILE};
+use aria2c::{Aria2cConfig, Aria2cSettings, Aria2cState, ARIA2C_CONFIG_FILE};
 #[cfg(test)]
 mod test_support;
 pub mod toolchain;
@@ -210,21 +210,18 @@ async fn get_aria2c_settings(
 }
 
 #[tauri::command]
-async fn inspect_aria2c_config(config: Aria2cConfig) -> Result<Aria2cStatus, String> {
-    tauri::async_runtime::spawn_blocking(move || aria2c::inspect_aria2c(&config))
-        .await
-        .map_err(join_error)?
-}
-
-#[tauri::command]
 async fn save_aria2c_config(
     state: tauri::State<'_, Aria2cState>,
     config: Aria2cConfig,
 ) -> Result<Aria2cSettings, String> {
     let state = state.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || state.save(config))
-        .await
-        .map_err(join_error)?
+    tauri::async_runtime::spawn_blocking(move || {
+        state.save_with(config, |config| {
+            aria2c::inspect_aria2c(&active_aria2c_config(config)?)
+        })
+    })
+    .await
+    .map_err(join_error)?
 }
 
 struct PreparedCookiesFile {
@@ -573,6 +570,7 @@ async fn reinstall_tools(
 async fn parse_metadata(app: AppHandle, url: String) -> Result<VideoMetadata, String> {
     let aria2c_config = app.state::<Aria2cState>().snapshot_config()?;
     tauri::async_runtime::spawn_blocking(move || {
+        let aria2c_config = active_aria2c_config(&aria2c_config)?;
         aria2c::require_aria2c(&aria2c_config)?;
         let platform = current_platform_definition()?;
         validate_http_url(&url)?;
@@ -632,6 +630,7 @@ async fn download_video(
     let guard = begin_download(&process_state)?;
 
     tauri::async_runtime::spawn_blocking(move || {
+        let aria2c_config = active_aria2c_config(&aria2c_config)?;
         let status = aria2c::require_aria2c(&aria2c_config)?;
         let aria2c_args = aria2c::aria2c_downloader_args(&aria2c_config, &status)?;
         let platform = current_platform_definition()?;
@@ -789,6 +788,35 @@ fn request_download_cancel(state: &DownloadProcessState) -> Result<(), String> {
     Ok(())
 }
 
+fn aria2c_for_toolchain(
+    config: &Aria2cConfig,
+    source: ToolchainSource,
+    homebrew_prefix: Option<&Path>,
+) -> Aria2cConfig {
+    let mut resolved = config.clone();
+    if source == ToolchainSource::Managed {
+        if let Some(prefix) = homebrew_prefix {
+            resolved.executable_path = Some(prefix.join("bin/aria2c"));
+        }
+    }
+    resolved
+}
+
+fn active_aria2c_config(config: &Aria2cConfig) -> Result<Aria2cConfig, String> {
+    let platform = current_platform_definition()?;
+    let source = read_toolchain_source(platform.default_source)?;
+    let homebrew = if source == ToolchainSource::Managed
+        && matches!(
+            platform.provider,
+            ManagedProviderDefinition::Homebrew { .. }
+        ) {
+        Some(locate_homebrew(&platform)?.prefix)
+    } else {
+        None
+    };
+    Ok(aria2c_for_toolchain(config, source, homebrew.as_deref()))
+}
+
 fn with_required_aria2c(
     app: &AppHandle,
     mut statuses: Vec<ToolStatus>,
@@ -801,7 +829,7 @@ fn with_required_aria2c(
     }) {
         return Ok(statuses);
     }
-    let config = app.state::<Aria2cState>().snapshot_config()?;
+    let config = active_aria2c_config(&app.state::<Aria2cState>().snapshot_config()?)?;
     let mut required = aria2c::inspect_aria2c(&config)?.tool_status();
     if required.availability != "available" {
         // This selected/PATH executable is outside package installation remediation.
@@ -2214,7 +2242,6 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_app_state,
             get_aria2c_settings,
-            inspect_aria2c_config,
             save_aria2c_config,
             set_download_directory,
             reset_download_directory,
@@ -2241,6 +2268,39 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn homebrew_aria2c_ignores_legacy_override_but_custom_tools_keep_it() {
+        let saved = Aria2cConfig {
+            enabled: true,
+            executable_path: Some(PathBuf::from("/old/aria2c")),
+            parallel_connections: 8,
+            ..Default::default()
+        };
+        let managed = aria2c_for_toolchain(
+            &saved,
+            ToolchainSource::Managed,
+            Some(Path::new("/custom brew")),
+        );
+        assert_eq!(
+            managed.executable_path,
+            Some(PathBuf::from("/custom brew/bin/aria2c"))
+        );
+        assert!(managed.enabled);
+        assert_eq!(managed.parallel_connections, 8);
+        assert_eq!(
+            aria2c_for_toolchain(
+                &saved,
+                ToolchainSource::Local,
+                Some(Path::new("/custom brew"))
+            ),
+            saved
+        );
+        assert_eq!(
+            aria2c_for_toolchain(&saved, ToolchainSource::Managed, None),
+            saved
+        );
+    }
+
     #[test]
     fn completion_commits_before_late_cancellation_and_releases_once() {
         let state = DownloadProcessState::default();
