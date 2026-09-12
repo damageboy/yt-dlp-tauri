@@ -72,7 +72,7 @@ jobs:
           git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
           git switch -c "$branch"
           git add toolchain-lock.json src-tauri/tools-manifest.json TOOLCHAIN_CHANGELOG.md
-          git commit -m "chore: update toolchain candidate" -m "chore: 更新工具链候选版本"
+          git commit -m "chore: update toolchain candidate"
           git fetch --prune origin "+refs/heads/${branch}:refs/remotes/origin/${branch}" || true
           git push --force-with-lease origin "HEAD:refs/heads/${branch}"
 

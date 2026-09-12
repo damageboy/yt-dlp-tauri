@@ -29,10 +29,6 @@ export function extractReleaseNotes(changelog, version) {
     throw new Error(`CHANGELOG.md section for ${normalizedVersion} is empty.`);
   }
 
-  if (!/^### 中文$/m.test(body) || !/^### English$/m.test(body)) {
-    throw new Error(`CHANGELOG.md section for ${normalizedVersion} must include ### 中文 and ### English.`);
-  }
-
   return `${body}\n`;
 }
 

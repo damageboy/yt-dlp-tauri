@@ -5,7 +5,6 @@
 </p>
 
 <p align="center">
-  <a href="./README_zh.md">中文</a> ·
   <a href="#quick-start">Quick Start</a> ·
   <a href="#configuration">Configuration</a> ·
   <a href="#verification">Verification</a> ·
@@ -47,7 +46,6 @@ The project is desktop-first and local-first. It is not a hosted downloader serv
 - Switch between managed tools and trusted custom tools discovered from platform search paths or selected by absolute path.
 - Resolve the Windows stable toolchain from project-controlled, hash-pinned GitHub Release assets.
 - Stage and verify every Windows archive tool before atomic activation, preserving the active revision when an update fails.
-- Switch the UI between English and Chinese.
 - Check GitHub Releases for app updates, with optional `gh-proxy` routing for update and release access.
 - Keep local operational logs for recent app activity.
 

@@ -5,6 +5,8 @@
 | `aria2c-required.test.ts` | Verifies configuration repair, package installation and remote update action boundaries; See change: aria2c-required-tool. |
 | `aria2c-settings.test.ts` | Verifies numeric validation, failed saves, dirty drafts and path-only persistence; See change: aria2c-external-downloader. |
 | `publish-toolchain.test.ts` | Verifies owned toolchain publish toolchain contracts; See change: owned-toolchain. |
+| `release-notes-ui.test.ts` | Verifies plain English bullets across categories, missing versions and update visibility; See change: english-only-app. |
+| `release-notes.test.ts` | Verifies English release extraction, missing/empty sections and synchronized versions; See change: english-only-app. |
 | `release-workflow.test.ts` | Checks platform releases, exact toolchain publication wait and native Windows/RPC gate; See change: fork-release-builds. See change: owned-toolchain. |
 | `toolchain-archive-channel.test.ts` | Verifies owned toolchain archive channel contracts; See change: owned-toolchain. |
 | `toolchain-archive-contract.test.ts` | Verifies owned toolchain archive contract contracts; See change: owned-toolchain. |

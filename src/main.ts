@@ -104,400 +104,203 @@ const TOAST_AUTO_DISMISS_MS: Record<NoticeTone, number> = {
   error: 0,
 };
 
-const translations = {
-  en: {
-    "aria2c.configurationRequired": "aria2c is required. In Toolchain, choose a working aria2c executable or Use PATH.",
-    "aria2c.enabled": "Use aria2c",
-    "aria2c.parallel": "Parallelism",
-    "aria2c.parallelHint": "Sets simultaneous HLS/DASH segment downloads. When aria2c is used, also sets its concurrent items, connections per server per item, and splits. This is not the number of simultaneous videos.",
-    "aria2c.save": "Save",
-    "aria2c.saved": "aria2c settings saved",
-    "aria2c.saveFailed": "Could not save aria2c settings: {message}",
-    "aria2c.invalid": "Enter a whole number from 1 to 16",
-    "aria2c.loadFailed": "Could not load saved settings; aria2c defaults to disabled",
-    "aria2c.choose": "Choose aria2c executable",
-    "app.title": "yt-dlp-tauri",
-    "app.eyebrow": "Desktop downloader",
-    "app.heading": "Paste, choose, download.",
-    "notifications.label": "Notifications",
-    "language.label": "Language",
-    "action.settings": "Settings",
-    "action.close": "Close",
-    "action.done": "Done",
-    "action.dismissNotification": "Dismiss notification",
-    "action.parse": "Parse",
-    "action.download": "Download",
-    "action.cancel": "Cancel",
-    "action.openFolder": "Open folder",
-    "action.browse": "Browse",
-    "action.save": "Save",
-    "action.reset": "Reset",
-    "action.chooseCookies": "Choose Cookie file",
-    "action.clearCookies": "Clear",
-    "action.verifyTools": "Verify tools",
-    "action.checkToolUpdates": "Check tool updates",
-    "action.installTools": "Install tools",
-    "action.updateTools": "Update tools",
-    "action.reinstallTools": "Reinstall tools",
-    "action.choosePath": "Choose",
-    "action.chooseYtDlp": "Choose yt-dlp",
-    "action.chooseFfmpegDirectory": "Choose FFmpeg directory",
-    "action.chooseDeno": "Choose Deno",
-    "action.usePath": "Use PATH",
-    "action.checkUpdates": "Check updates",
-    "action.openRelease": "Open release",
-    "action.releaseNotes": "Release notes",
-    "action.projectHome": "Project home",
-    "action.openHomebrew": "Open Homebrew website",
-    "github.accessLabel": "GitHub access mode",
-    "github.direct": "Direct",
-    "github.proxy": "gh-proxy",
-    "url.label": "Video URL",
-    "url.placeholder": "https://www.youtube.com/watch?v=...",
-    "cookies.label": "Cookie file",
-    "cookies.none": "No cookies",
-    "cookies.chooseFile": "Choose Cookie file",
-    "preview.thumbnailAlt": "video thumbnail",
-    "preview.emptyImage": "Preview",
-    "preview.label": "Preview",
-    "preview.noVideo": "No video parsed",
-    "preview.emptyStart": "Paste a video URL to inspect title, cover, duration, and qualities.",
-    "preview.emptyChanged": "Paste a URL and parse it before downloading.",
-    "preview.cookiesChanged": "Cookie file changed. Parse again before downloading.",
-    "preview.toolsChanged": "Tool source changed. Parse again before downloading.",
-    "preview.readingMetadata": "Reading metadata from yt-dlp...",
-    "preview.parseFailed": "Metadata parsing failed. Check the URL and tools.",
-    "preview.noDescription": "No description returned by yt-dlp.",
-    "download.format": "Format",
-    "download.quality": "Quality",
-    "progress.idle": "Idle",
-    "progress.parsing": "Parsing video metadata...",
-    "progress.metadataReady": "Metadata parsed. Choose a quality, then download.",
-    "progress.metadataFailed": "Metadata parsing failed.",
-    "progress.startingDownload": "Starting {quality} download...",
-    "progress.savedTo": "Saved to {path}",
-    "progress.completedOpenFolder": "Download completed. Open the folder to view the file.",
-    "progress.downloadCancelled": "Download cancelled.",
-    "progress.downloadFailed": "Download failed.",
-    "progress.cancelling": "Cancelling download...",
-    "progress.eta": "ETA",
-    "notice.checkingTools": "Checking tools...",
-    "notice.toolchainReady": "Toolchain ready.",
-    "notice.toolsMissing": "Some tools are missing.",
-    "notice.toolsOutdated": "Toolchain update available.",
-    "notice.toolsDamaged": "Toolchain needs reinstall.",
-    "notice.localToolchainReady": "Local toolchain ready.",
-    "notice.localToolsMissing": "Some local tools are missing.",
-    "notice.localToolsDamaged": "Local toolchain verification failed.",
-    "notice.homebrewMissing": "Homebrew is not installed. Install it from brew.sh, then verify tools again.",
-    "notice.toolCheckFailed": "Tool check failed.",
-    "notice.toolsInstalled": "Toolchain installed.",
-    "notice.toolInstallNeedsAttention": "Tool install needs attention.",
-    "notice.toolInstallFailed": "Tool install failed.",
-    "notice.metadataParsed": "Metadata parsed.",
-    "notice.downloadCompleted": "Download completed.",
-    "notice.downloadCancelled": "Download cancelled.",
-    "notice.folderUpdated": "Download folder updated.",
-    "notice.folderReset": "Download folder reset.",
-    "notice.cookiesUpdated": "Cookie file updated.",
-    "notice.cookiesCleared": "Cookie file cleared.",
-    "updates.checking": "Checking GitHub releases...",
-    "updates.available": "New version available: {version}",
-    "updates.current": "You are up to date.",
-    "updates.noRelease": "No GitHub release found yet.",
-    "updates.invalidRelease": "GitHub returned an unreadable release.",
-    "updates.failed": "Could not check updates: {message}",
-    "updates.rateLimited": "GitHub API rate limit reached. Try again after {time}, or switch GitHub access mode.",
-    "updates.later": "later",
-    "releaseNotes.kicker": "Updated",
-    "releaseNotes.title": "What's new",
-    "releaseNotes.version": "Version {version}",
-    "releaseNotes.empty": "No release notes found for this version.",
-    "settings.kicker": "Preferences",
-    "settings.title": "Settings",
-    "settings.outputFolder": "Output folder",
-    "settings.resolvingFolder": "Resolving download folder...",
-    "settings.toolchain": "Toolchain",
-    "settings.toolchainHint": "Per-target tools are verified with SHA-256.",
-    "settings.localToolchainHint": "Local executables are verified by behavior and remain user-managed.",
-    "settings.homebrewToolchainHint": "Required tools are managed with Homebrew.",
-    "settings.homebrewGuidance": "Homebrew manages the yt-dlp, ffmpeg, deno, and aria2 formulas.",
-    "settings.homebrewMissing": "Homebrew is not installed. Install it from brew.sh, then verify tools again.",
-    "settings.homebrewPrefix": "Homebrew prefix: {path}",
-    "settings.homebrewPrefixPending": "Homebrew prefix not found",
-    "settings.toolSource": "Tool source",
-    "settings.managedTools": "Managed",
-    "settings.localTools": "Local",
-    "settings.homebrewTools": "Homebrew",
-    "settings.customTools": "Custom",
-    "settings.activeRevision": "Active revision",
-    "settings.noActiveRevision": "None",
-    "settings.resolvingTools": "Resolving tools path...",
-    "settings.installMissing": "Install missing tools automatically.",
-    "settings.installingTools": "Installing missing tools...",
-    "settings.updatingTools": "Updating tools to pinned versions...",
-    "settings.reinstallingTools": "Reinstalling managed tools...",
-    "settings.toolsPathPending": "Tools path not resolved yet",
-    "settings.toolsChecking": "Checking tools...",
-    "settings.toolsAvailable": "All required tools are available.",
-    "settings.toolsMissing": "Missing tools can be installed automatically.",
-    "settings.toolsDamaged": "Some tools are missing, damaged, or do not match the active manifest.",
-    "settings.localPathNotDetected": "Not detected",
-    "settings.detectingLocalTools": "Detecting local tools from PATH...",
-    "settings.usePathHint": "Clear selected paths and resolve all local tools from the current PATH.",
-    "settings.localToolsAvailable": "Local yt-dlp, FFmpeg, FFprobe, Deno and aria2c passed verification.",
-    "settings.localToolsMissing": "Choose missing local paths or use the current PATH.",
-    "settings.localToolsDamaged": "One or more local tools failed version or compatibility checks.",
-    "settings.toolSourceFailed": "Could not change tool source: {message}",
-    "settings.localToolSaveFailed": "Could not save local tool paths: {message}",
-    "settings.localToolDetectFailed": "Could not detect local tools: {message}",
-    "settings.toolUpdatesChecking": "Checking the latest released tool manifest...",
-    "settings.toolUpdatesAvailable": "A released toolchain update is available.",
-    "settings.toolUpdatesCurrent": "Tools match the latest released manifest.",
-    "settings.toolUpdatesNoManifest": "The latest release does not include a tool manifest yet.",
-    "settings.toolUpdatesInvalidManifest": "The released tool manifest could not be read.",
-    "settings.toolUpdatesFailed": "Tool update check failed: {message}",
-    "settings.reinstallConfirm": "Download and verify a fresh toolchain at {path}? The current revision stays active until the replacement passes every check",
-    "settings.homebrewInstallConfirm": "Install Homebrew formulas yt-dlp, ffmpeg, deno, and aria2?",
-    "settings.homebrewUpdateConfirm": "Update Homebrew formulas yt-dlp, ffmpeg, deno, and aria2?",
-    "settings.homebrewReinstallConfirm": "Reinstall Homebrew formulas yt-dlp, ffmpeg, deno, and aria2?",
-    "settings.toolCheckFailed": "Tool check failed.",
-    "settings.toolsInstalled": "Toolchain installed.",
-    "settings.toolsInstallPartial": "Install finished, but some tools still need attention.",
-    "settings.toolInstallFailed": "Tool install failed.",
-    "settings.activity": "Activity",
-    "settings.activityHint": "Recent local events.",
-    "settings.version": "Version",
-    "settings.githubSite": "GitHub site",
-    "settings.chooseFolder": "Choose download folder",
-    "tool.currentUnknown": "unknown",
-    "event.booted": "App booted.",
-    "event.toolsAvailable": "yt-dlp, ffmpeg, ffprobe, deno and aria2c are available.",
-    "event.toolsMissing": "Tool check found missing tools.",
-    "event.toolsDamaged": "Tool check found tools that need reinstall.",
-    "event.localToolsAvailable": "Local toolchain passed verification.",
-    "event.localToolsMissing": "Local toolchain has missing paths.",
-    "event.localToolsDamaged": "Local toolchain failed verification.",
-    "event.homebrewMissing": "Homebrew was not found.",
-    "event.localToolsSelected": "Local tool source selected.",
-    "event.managedToolsSelected": "Managed tool source selected.",
-    "event.toolUpdatesAvailable": "Released toolchain update found.",
-    "event.toolUpdatesCurrent": "Tools match the latest released manifest.",
-    "event.toolsInstalled": "Toolchain installed.",
-    "event.toolsPartial": "Tool install completed with missing tools.",
-    "event.toolInstallFailed": "Tool install failed.",
-    "event.parsed": "Parsed {title}",
-    "event.metadataFailed": "Metadata parsing failed.",
-    "event.saved": "Saved {path}",
-    "event.downloadCompleted": "Download completed.",
-    "event.downloadCancelled": "Download cancelled.",
-    "event.downloadFailed": "Download failed.",
-    "event.cancelRequested": "Cancel requested.",
-    "event.cookiesUpdated": "Cookie file selected: {file}",
-    "event.cookiesCleared": "Cookie file cleared.",
-  },
-  zh: {
-    "aria2c.configurationRequired": "aria2c 是必需工具。请在工具链中选择可用的 aria2c 可执行文件或使用 PATH。",
-    "aria2c.enabled": "使用 aria2c",
-    "aria2c.parallel": "并行度",
-    "aria2c.parallelHint": "设置同时下载的 HLS/DASH 片段数。使用 aria2c 时，还设置其并发任务数、每个任务连接同一服务器的连接数和分片数。这不是同时下载的视频数量。",
-    "aria2c.save": "保存",
-    "aria2c.saved": "aria2c 设置已保存",
-    "aria2c.saveFailed": "无法保存 aria2c 设置：{message}",
-    "aria2c.invalid": "请输入 1 到 16 的整数",
-    "aria2c.loadFailed": "无法读取已保存的设置；aria2c 默认禁用",
-    "aria2c.choose": "选择 aria2c 可执行文件",
-    "app.title": "yt-dlp-tauri",
-    "app.eyebrow": "桌面下载器",
-    "app.heading": "粘贴，选择，下载。",
-    "notifications.label": "通知",
-    "language.label": "语言",
-    "action.settings": "设置",
-    "action.close": "关闭",
-    "action.done": "完成",
-    "action.dismissNotification": "关闭通知",
-    "action.parse": "解析",
-    "action.download": "下载",
-    "action.cancel": "取消",
-    "action.openFolder": "打开目录",
-    "action.browse": "浏览",
-    "action.save": "保存",
-    "action.reset": "重置",
-    "action.chooseCookies": "选择 Cookie 文件",
-    "action.clearCookies": "清除",
-    "action.verifyTools": "验证工具",
-    "action.checkToolUpdates": "检查工具更新",
-    "action.installTools": "安装工具",
-    "action.updateTools": "更新工具",
-    "action.reinstallTools": "重新安装工具",
-    "action.choosePath": "选择",
-    "action.chooseYtDlp": "选择 yt-dlp",
-    "action.chooseFfmpegDirectory": "选择 FFmpeg 目录",
-    "action.chooseDeno": "选择 Deno",
-    "action.usePath": "使用 PATH",
-    "action.checkUpdates": "检查更新",
-    "action.openRelease": "打开发布页",
-    "action.releaseNotes": "更新说明",
-    "action.projectHome": "项目主页",
-    "action.openHomebrew": "打开 Homebrew 网站",
-    "github.accessLabel": "GitHub 访问方式",
-    "github.direct": "直连",
-    "github.proxy": "gh-proxy",
-    "url.label": "视频链接",
-    "url.placeholder": "https://www.youtube.com/watch?v=...",
-    "cookies.label": "Cookie 文件",
-    "cookies.none": "未使用 Cookie",
-    "cookies.chooseFile": "选择 Cookie 文件",
-    "preview.thumbnailAlt": "视频缩略图",
-    "preview.emptyImage": "预览",
-    "preview.label": "预览",
-    "preview.noVideo": "尚未解析视频",
-    "preview.emptyStart": "粘贴视频链接后解析，可查看标题、封面、时长和清晰度。",
-    "preview.emptyChanged": "请先解析当前链接，再开始下载。",
-    "preview.cookiesChanged": "Cookie 文件已变更，请重新解析后再下载。",
-    "preview.toolsChanged": "工具来源已更改，请重新解析后再下载。",
-    "preview.readingMetadata": "正在通过 yt-dlp 读取信息...",
-    "preview.parseFailed": "解析失败。请检查链接和工具链。",
-    "preview.noDescription": "yt-dlp 未返回描述。",
-    "download.format": "格式",
-    "download.quality": "清晰度",
-    "progress.idle": "空闲",
-    "progress.parsing": "正在解析视频信息...",
-    "progress.metadataReady": "视频信息已解析。选择清晰度后即可下载。",
-    "progress.metadataFailed": "视频信息解析失败。",
-    "progress.startingDownload": "开始下载 {quality}...",
-    "progress.savedTo": "已保存到 {path}",
-    "progress.completedOpenFolder": "下载完成。打开目录即可查看文件。",
-    "progress.downloadCancelled": "下载已取消。",
-    "progress.downloadFailed": "下载失败。",
-    "progress.cancelling": "正在取消下载...",
-    "progress.eta": "剩余",
-    "notice.checkingTools": "正在检查工具链...",
-    "notice.toolchainReady": "工具链已就绪。",
-    "notice.toolsMissing": "缺少部分工具。",
-    "notice.toolsOutdated": "工具链有可用更新。",
-    "notice.toolsDamaged": "工具链需要重新安装。",
-    "notice.localToolchainReady": "本地工具链已就绪。",
-    "notice.localToolsMissing": "缺少部分本地工具。",
-    "notice.localToolsDamaged": "本地工具链验证失败。",
-    "notice.homebrewMissing": "未安装 Homebrew。请从 brew.sh 安装，然后重新验证工具。",
-    "notice.toolCheckFailed": "工具检查失败。",
-    "notice.toolsInstalled": "工具链已安装。",
-    "notice.toolInstallNeedsAttention": "工具安装需要处理。",
-    "notice.toolInstallFailed": "工具安装失败。",
-    "notice.metadataParsed": "视频信息已解析。",
-    "notice.downloadCompleted": "下载完成。",
-    "notice.downloadCancelled": "下载已取消。",
-    "notice.folderUpdated": "下载目录已更新。",
-    "notice.folderReset": "下载目录已重置。",
-    "notice.cookiesUpdated": "Cookie 文件已更新。",
-    "notice.cookiesCleared": "Cookie 文件已清除。",
-    "updates.checking": "正在检查 GitHub Releases...",
-    "updates.available": "发现新版本：{version}",
-    "updates.current": "当前已是最新版本。",
-    "updates.noRelease": "暂未找到 GitHub Release。",
-    "updates.invalidRelease": "GitHub 返回的发布信息无法读取。",
-    "updates.failed": "检查更新失败：{message}",
-    "updates.rateLimited": "GitHub API 访问额度已用尽。请在 {time} 后重试，或切换 GitHub 访问方式。",
-    "updates.later": "稍后",
-    "releaseNotes.kicker": "已更新",
-    "releaseNotes.title": "更新说明",
-    "releaseNotes.version": "版本 {version}",
-    "releaseNotes.empty": "当前版本没有更新说明。",
-    "settings.kicker": "偏好",
-    "settings.title": "设置",
-    "settings.outputFolder": "输出目录",
-    "settings.resolvingFolder": "正在解析下载目录...",
-    "settings.toolchain": "工具链",
-    "settings.toolchainHint": "按目标平台安装，并用 SHA-256 校验。",
-    "settings.localToolchainHint": "本地程序按实际行为验证，版本与文件由用户管理。",
-    "settings.homebrewToolchainHint": "所需工具由 Homebrew 管理。",
-    "settings.homebrewGuidance": "Homebrew 管理 yt-dlp、ffmpeg、deno 和 aria2 formula。",
-    "settings.homebrewMissing": "未安装 Homebrew。请从 brew.sh 安装，然后重新验证工具。",
-    "settings.homebrewPrefix": "Homebrew 前缀：{path}",
-    "settings.homebrewPrefixPending": "未找到 Homebrew 前缀",
-    "settings.toolSource": "工具来源",
-    "settings.managedTools": "应用管理",
-    "settings.localTools": "本地工具",
-    "settings.homebrewTools": "Homebrew",
-    "settings.customTools": "自定义",
-    "settings.activeRevision": "当前 revision",
-    "settings.noActiveRevision": "未激活",
-    "settings.resolvingTools": "正在解析工具路径...",
-    "settings.installMissing": "可自动安装缺失工具。",
-    "settings.installingTools": "正在安装缺失工具...",
-    "settings.updatingTools": "正在更新到固定版本...",
-    "settings.reinstallingTools": "正在重新安装受管工具...",
-    "settings.toolsPathPending": "工具路径尚未解析",
-    "settings.toolsChecking": "正在检查工具链...",
-    "settings.toolsAvailable": "所需工具均可用。",
-    "settings.toolsMissing": "可自动安装缺失工具。",
-    "settings.toolsDamaged": "部分工具缺失、损坏，或与当前清单不匹配。",
-    "settings.localPathNotDetected": "未检测到",
-    "settings.detectingLocalTools": "正在从 PATH 检测本地工具...",
-    "settings.usePathHint": "清除已选择的路径，并从当前 PATH 重新解析全部本地工具。",
-    "settings.localToolsAvailable": "本地 yt-dlp、FFmpeg、FFprobe、Deno 和 aria2c 已通过验证。",
-    "settings.localToolsMissing": "请选择缺失路径，或使用当前 PATH。",
-    "settings.localToolsDamaged": "部分本地工具未通过版本或组合兼容性检查。",
-    "settings.toolSourceFailed": "无法切换工具来源：{message}",
-    "settings.localToolSaveFailed": "无法保存本地工具路径：{message}",
-    "settings.localToolDetectFailed": "无法检测本地工具：{message}",
-    "settings.toolUpdatesChecking": "正在检查最新发布的工具清单...",
-    "settings.toolUpdatesAvailable": "有已发布的工具链更新。",
-    "settings.toolUpdatesCurrent": "工具链与最新发布清单一致。",
-    "settings.toolUpdatesNoManifest": "最新发布暂未附带工具清单。",
-    "settings.toolUpdatesInvalidManifest": "发布的工具清单无法读取。",
-    "settings.toolUpdatesFailed": "工具更新检查失败：{message}",
-    "settings.reinstallConfirm": "重新下载并校验 {path} 下的工具链？新版本通过全部检查前会继续使用当前版本",
-    "settings.homebrewInstallConfirm": "安装 Homebrew formula yt-dlp、ffmpeg、deno 和 aria2？",
-    "settings.homebrewUpdateConfirm": "更新 Homebrew formula yt-dlp、ffmpeg、deno 和 aria2？",
-    "settings.homebrewReinstallConfirm": "重新安装 Homebrew formula yt-dlp、ffmpeg、deno 和 aria2？",
-    "settings.toolCheckFailed": "工具检查失败。",
-    "settings.toolsInstalled": "工具链已安装。",
-    "settings.toolsInstallPartial": "安装结束，但仍有工具需要处理。",
-    "settings.toolInstallFailed": "工具安装失败。",
-    "settings.activity": "活动",
-    "settings.activityHint": "最近的本地事件。",
-    "settings.version": "版本",
-    "settings.githubSite": "GitHub 站点",
-    "settings.chooseFolder": "选择下载目录",
-    "tool.currentUnknown": "未知",
-    "event.booted": "应用已启动。",
-    "event.toolsAvailable": "yt-dlp、ffmpeg、ffprobe、deno 和 aria2c 均可用。",
-    "event.toolsMissing": "工具检查发现缺失项。",
-    "event.toolsDamaged": "工具检查发现需要重新安装的项目。",
-    "event.localToolsAvailable": "本地工具链已通过验证。",
-    "event.localToolsMissing": "本地工具链存在缺失路径。",
-    "event.localToolsDamaged": "本地工具链验证失败。",
-    "event.homebrewMissing": "未找到 Homebrew。",
-    "event.localToolsSelected": "已选择本地工具来源。",
-    "event.managedToolsSelected": "已选择应用管理工具来源。",
-    "event.toolUpdatesAvailable": "发现已发布的工具链更新。",
-    "event.toolUpdatesCurrent": "工具链与最新发布清单一致。",
-    "event.toolsInstalled": "工具链已安装。",
-    "event.toolsPartial": "工具安装完成，但仍有缺失项。",
-    "event.toolInstallFailed": "工具安装失败。",
-    "event.parsed": "已解析 {title}",
-    "event.metadataFailed": "视频信息解析失败。",
-    "event.saved": "已保存 {path}",
-    "event.downloadCompleted": "下载完成。",
-    "event.downloadCancelled": "下载已取消。",
-    "event.downloadFailed": "下载失败。",
-    "event.cancelRequested": "已请求取消。",
-    "event.cookiesUpdated": "已选择 Cookie 文件：{file}",
-    "event.cookiesCleared": "Cookie 文件已清除。",
-  },
+const messages = {
+  "aria2c.configurationRequired": "aria2c is required. In Toolchain, choose a working aria2c executable or Use PATH.",
+  "aria2c.enabled": "Use aria2c",
+  "aria2c.parallel": "Parallelism",
+  "aria2c.parallelHint": "Sets simultaneous HLS/DASH segment downloads. When aria2c is used, also sets its concurrent items, connections per server per item, and splits. This is not the number of simultaneous videos.",
+  "aria2c.save": "Save",
+  "aria2c.saved": "aria2c settings saved",
+  "aria2c.saveFailed": "Could not save aria2c settings: {message}",
+  "aria2c.invalid": "Enter a whole number from 1 to 16",
+  "aria2c.loadFailed": "Could not load saved settings; aria2c defaults to disabled",
+  "aria2c.choose": "Choose aria2c executable",
+  "app.title": "yt-dlp-tauri",
+  "app.eyebrow": "Desktop downloader",
+  "app.heading": "Paste, choose, download.",
+  "notifications.label": "Notifications",
+  "action.settings": "Settings",
+  "action.close": "Close",
+  "action.done": "Done",
+  "action.dismissNotification": "Dismiss notification",
+  "action.parse": "Parse",
+  "action.download": "Download",
+  "action.cancel": "Cancel",
+  "action.openFolder": "Open folder",
+  "action.browse": "Browse",
+  "action.save": "Save",
+  "action.reset": "Reset",
+  "action.chooseCookies": "Choose Cookie file",
+  "action.clearCookies": "Clear",
+  "action.verifyTools": "Verify tools",
+  "action.checkToolUpdates": "Check tool updates",
+  "action.installTools": "Install tools",
+  "action.updateTools": "Update tools",
+  "action.reinstallTools": "Reinstall tools",
+  "action.choosePath": "Choose",
+  "action.chooseYtDlp": "Choose yt-dlp",
+  "action.chooseFfmpegDirectory": "Choose FFmpeg directory",
+  "action.chooseDeno": "Choose Deno",
+  "action.usePath": "Use PATH",
+  "action.checkUpdates": "Check updates",
+  "action.openRelease": "Open release",
+  "action.releaseNotes": "Release notes",
+  "action.projectHome": "Project home",
+  "action.openHomebrew": "Open Homebrew website",
+  "github.accessLabel": "GitHub access mode",
+  "github.direct": "Direct",
+  "github.proxy": "gh-proxy",
+  "url.label": "Video URL",
+  "url.placeholder": "https://www.youtube.com/watch?v=...",
+  "cookies.label": "Cookie file",
+  "cookies.none": "No cookies",
+  "cookies.chooseFile": "Choose Cookie file",
+  "preview.thumbnailAlt": "video thumbnail",
+  "preview.emptyImage": "Preview",
+  "preview.label": "Preview",
+  "preview.noVideo": "No video parsed",
+  "preview.emptyStart": "Paste a video URL to inspect title, cover, duration, and qualities.",
+  "preview.emptyChanged": "Paste a URL and parse it before downloading.",
+  "preview.cookiesChanged": "Cookie file changed. Parse again before downloading.",
+  "preview.toolsChanged": "Tool source changed. Parse again before downloading.",
+  "preview.readingMetadata": "Reading metadata from yt-dlp...",
+  "preview.parseFailed": "Metadata parsing failed. Check the URL and tools.",
+  "preview.noDescription": "No description returned by yt-dlp.",
+  "download.format": "Format",
+  "download.quality": "Quality",
+  "progress.idle": "Idle",
+  "progress.parsing": "Parsing video metadata...",
+  "progress.metadataReady": "Metadata parsed. Choose a quality, then download.",
+  "progress.metadataFailed": "Metadata parsing failed.",
+  "progress.startingDownload": "Starting {quality} download...",
+  "progress.savedTo": "Saved to {path}",
+  "progress.completedOpenFolder": "Download completed. Open the folder to view the file.",
+  "progress.downloadCancelled": "Download cancelled.",
+  "progress.downloadFailed": "Download failed.",
+  "progress.cancelling": "Cancelling download...",
+  "progress.eta": "ETA",
+  "notice.checkingTools": "Checking tools...",
+  "notice.toolchainReady": "Toolchain ready.",
+  "notice.toolsMissing": "Some tools are missing.",
+  "notice.toolsOutdated": "Toolchain update available.",
+  "notice.toolsDamaged": "Toolchain needs reinstall.",
+  "notice.localToolchainReady": "Local toolchain ready.",
+  "notice.localToolsMissing": "Some local tools are missing.",
+  "notice.localToolsDamaged": "Local toolchain verification failed.",
+  "notice.homebrewMissing": "Homebrew is not installed. Install it from brew.sh, then verify tools again.",
+  "notice.toolCheckFailed": "Tool check failed.",
+  "notice.toolsInstalled": "Toolchain installed.",
+  "notice.toolInstallNeedsAttention": "Tool install needs attention.",
+  "notice.toolInstallFailed": "Tool install failed.",
+  "notice.metadataParsed": "Metadata parsed.",
+  "notice.downloadCompleted": "Download completed.",
+  "notice.downloadCancelled": "Download cancelled.",
+  "notice.folderUpdated": "Download folder updated.",
+  "notice.folderReset": "Download folder reset.",
+  "notice.cookiesUpdated": "Cookie file updated.",
+  "notice.cookiesCleared": "Cookie file cleared.",
+  "updates.checking": "Checking GitHub releases...",
+  "updates.available": "New version available: {version}",
+  "updates.current": "You are up to date.",
+  "updates.noRelease": "No GitHub release found yet.",
+  "updates.invalidRelease": "GitHub returned an unreadable release.",
+  "updates.failed": "Could not check updates: {message}",
+  "updates.rateLimited": "GitHub API rate limit reached. Try again after {time}, or switch GitHub access mode.",
+  "updates.later": "later",
+  "releaseNotes.kicker": "Updated",
+  "releaseNotes.title": "What's new",
+  "releaseNotes.version": "Version {version}",
+  "releaseNotes.empty": "No release notes found for this version.",
+  "settings.kicker": "Preferences",
+  "settings.title": "Settings",
+  "settings.outputFolder": "Output folder",
+  "settings.resolvingFolder": "Resolving download folder...",
+  "settings.toolchain": "Toolchain",
+  "settings.toolchainHint": "Per-target tools are verified with SHA-256.",
+  "settings.localToolchainHint": "Local executables are verified by behavior and remain user-managed.",
+  "settings.homebrewToolchainHint": "Required tools are managed with Homebrew.",
+  "settings.homebrewGuidance": "Homebrew manages the yt-dlp, ffmpeg, deno, and aria2 formulas.",
+  "settings.homebrewMissing": "Homebrew is not installed. Install it from brew.sh, then verify tools again.",
+  "settings.homebrewPrefix": "Homebrew prefix: {path}",
+  "settings.homebrewPrefixPending": "Homebrew prefix not found",
+  "settings.toolSource": "Tool source",
+  "settings.managedTools": "Managed",
+  "settings.localTools": "Local",
+  "settings.activeRevision": "Active revision",
+  "settings.noActiveRevision": "None",
+  "settings.resolvingTools": "Resolving tools path...",
+  "settings.installMissing": "Install missing tools automatically.",
+  "settings.installingTools": "Installing missing tools...",
+  "settings.updatingTools": "Updating tools to pinned versions...",
+  "settings.reinstallingTools": "Reinstalling managed tools...",
+  "settings.toolsPathPending": "Tools path not resolved yet",
+  "settings.toolsChecking": "Checking tools...",
+  "settings.toolsAvailable": "All required tools are available.",
+  "settings.toolsMissing": "Missing tools can be installed automatically.",
+  "settings.toolsDamaged": "Some tools are missing, damaged, or do not match the active manifest.",
+  "settings.localPathNotDetected": "Not detected",
+  "settings.detectingLocalTools": "Detecting local tools from PATH...",
+  "settings.usePathHint": "Clear selected paths and resolve all local tools from the current PATH.",
+  "settings.localToolsAvailable": "Local yt-dlp, FFmpeg, FFprobe, Deno and aria2c passed verification.",
+  "settings.localToolsMissing": "Choose missing local paths or use the current PATH.",
+  "settings.localToolsDamaged": "One or more local tools failed version or compatibility checks.",
+  "settings.toolSourceFailed": "Could not change tool source: {message}",
+  "settings.localToolSaveFailed": "Could not save local tool paths: {message}",
+  "settings.localToolDetectFailed": "Could not detect local tools: {message}",
+  "settings.toolUpdatesChecking": "Checking the latest released tool manifest...",
+  "settings.toolUpdatesAvailable": "A released toolchain update is available.",
+  "settings.toolUpdatesCurrent": "Tools match the latest released manifest.",
+  "settings.toolUpdatesNoManifest": "The latest release does not include a tool manifest yet.",
+  "settings.toolUpdatesInvalidManifest": "The released tool manifest could not be read.",
+  "settings.toolUpdatesFailed": "Tool update check failed: {message}",
+  "settings.reinstallConfirm": "Download and verify a fresh toolchain at {path}? The current revision stays active until the replacement passes every check",
+  "settings.homebrewInstallConfirm": "Install Homebrew formulas yt-dlp, ffmpeg, deno, and aria2?",
+  "settings.homebrewUpdateConfirm": "Update Homebrew formulas yt-dlp, ffmpeg, deno, and aria2?",
+  "settings.homebrewReinstallConfirm": "Reinstall Homebrew formulas yt-dlp, ffmpeg, deno, and aria2?",
+  "settings.toolCheckFailed": "Tool check failed.",
+  "settings.toolsInstalled": "Toolchain installed.",
+  "settings.toolsInstallPartial": "Install finished, but some tools still need attention.",
+  "settings.toolInstallFailed": "Tool install failed.",
+  "settings.activity": "Activity",
+  "settings.activityHint": "Recent local events.",
+  "settings.version": "Version",
+  "settings.githubSite": "GitHub site",
+  "settings.chooseFolder": "Choose download folder",
+  "tool.currentUnknown": "unknown",
+  "event.booted": "App booted.",
+  "event.toolsAvailable": "yt-dlp, ffmpeg, ffprobe, deno and aria2c are available.",
+  "event.toolsMissing": "Tool check found missing tools.",
+  "event.toolsDamaged": "Tool check found tools that need reinstall.",
+  "event.localToolsAvailable": "Local toolchain passed verification.",
+  "event.localToolsMissing": "Local toolchain has missing paths.",
+  "event.localToolsDamaged": "Local toolchain failed verification.",
+  "event.homebrewMissing": "Homebrew was not found.",
+  "event.localToolsSelected": "Local tool source selected.",
+  "event.managedToolsSelected": "Managed tool source selected.",
+  "event.toolUpdatesAvailable": "Released toolchain update found.",
+  "event.toolUpdatesCurrent": "Tools match the latest released manifest.",
+  "event.toolsInstalled": "Toolchain installed.",
+  "event.toolsPartial": "Tool install completed with missing tools.",
+  "event.toolInstallFailed": "Tool install failed.",
+  "event.parsed": "Parsed {title}",
+  "event.metadataFailed": "Metadata parsing failed.",
+  "event.saved": "Saved {path}",
+  "event.downloadCompleted": "Download completed.",
+  "event.downloadCancelled": "Download cancelled.",
+  "event.downloadFailed": "Download failed.",
+  "event.cancelRequested": "Cancel requested.",
+  "event.cookiesUpdated": "Cookie file selected: {file}",
+  "event.cookiesCleared": "Cookie file cleared.",
 } as const;
 
-type Language = keyof typeof translations;
-type TranslationKey = keyof (typeof translations)["en"];
+type MessageKey = keyof typeof messages;
 type NoticeTone = "success" | "warning" | "error";
 type UpdateTone = "neutral" | "success" | "warning" | "error";
 
 const state = {
   aria2c: new Aria2cSettingsDraft(),
   aria2cResolvedPath: null as string | null,
-  aria2cMessage: null as { key: TranslationKey; detail?: string } | null,
+  aria2cMessage: null as { key: MessageKey; detail?: string } | null,
   metadata: null as VideoMetadata | null,
   selectedFormat: null as VideoFormatOption | null,
   busy: false,
@@ -525,10 +328,9 @@ const state = {
   pendingToolManifestJson: null as string | null,
   updateChecking: false,
   latestReleaseUrl: "",
-  updateStatus: null as { key: TranslationKey; values: Record<string, string | number>; tone: UpdateTone } | null,
+  updateStatus: null as { key: MessageKey; values: Record<string, string | number>; tone: UpdateTone } | null,
   githubAccessMode: resolveInitialGithubAccessMode(),
   cookiesFile: null as string | null,
-  language: resolveInitialLanguage(),
   releaseNotesOpen: false,
   thumbnailCandidates: [] as string[],
   thumbnailCandidateIndex: 0,
@@ -556,8 +358,6 @@ const elements = {
   settingsClose: must<HTMLButtonElement>("#settings-close"),
   settingsBackdrop: must<HTMLElement>("#settings-backdrop"),
   settingsDrawer: must<HTMLElement>("#settings-drawer"),
-  languageEn: must<HTMLButtonElement>("#language-en"),
-  languageZh: must<HTMLButtonElement>("#language-zh"),
   verifyTools: must<HTMLButtonElement>("#verify-tools"),
   toolSourceManaged: must<HTMLButtonElement>("#tool-source-managed"),
   toolSourceLocal: must<HTMLButtonElement>("#tool-source-local"),
@@ -616,7 +416,7 @@ const elements = {
 
 window.addEventListener("DOMContentLoaded", () => {
   bindEvents();
-  applyTranslations();
+  applyMessages();
   listen<DownloadProgress>("download-progress", (event) => updateDownloadProgress(event.payload));
   listen<ToolInstallProgress>("tool-install-progress", (event) => updateToolInstallProgress(event.payload));
   void bootstrap();
@@ -630,63 +430,51 @@ function must<T extends Element>(selector: string): T {
   return element;
 }
 
-function resolveInitialLanguage(): Language {
-  const stored = localStorage.getItem("yt-dlp-tauri-language");
-  if (stored === "en" || stored === "zh") {
-    return stored;
-  }
-  return navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en";
-}
-
 function resolveInitialGithubAccessMode(): GithubAccessMode {
   return localStorage.getItem(GITHUB_ACCESS_STORAGE_KEY) === "gh-proxy" ? "gh-proxy" : "direct";
 }
 
-function t(key: TranslationKey, values: Record<string, string | number> = {}) {
-  let text: string = translations[state.language][key] || translations.en[key] || key;
+function t(key: MessageKey, values: Record<string, string | number> = {}) {
+  let text: string = messages[key] || key;
   for (const [name, value] of Object.entries(values)) {
     text = text.split(`{${name}}`).join(String(value));
   }
   return stripTerminalSentencePunctuation(text);
 }
 
-function applyTranslations() {
+function applyMessages() {
   renderAria2c();
-  document.documentElement.lang = state.language === "zh" ? "zh-CN" : "en";
+  document.documentElement.lang = "en";
   document.title = t("app.title");
 
   document.querySelectorAll<HTMLElement>("[data-i18n]").forEach((element) => {
-    const key = element.dataset.i18n as TranslationKey | undefined;
+    const key = element.dataset.i18n as MessageKey | undefined;
     if (key) {
       element.textContent = t(key);
     }
   });
 
   document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("[data-i18n-placeholder]").forEach((element) => {
-    const key = element.dataset.i18nPlaceholder as TranslationKey | undefined;
+    const key = element.dataset.i18nPlaceholder as MessageKey | undefined;
     if (key) {
       element.placeholder = t(key);
     }
   });
 
   document.querySelectorAll<HTMLElement>("[data-i18n-aria-label]").forEach((element) => {
-    const key = element.dataset.i18nAriaLabel as TranslationKey | undefined;
+    const key = element.dataset.i18nAriaLabel as MessageKey | undefined;
     if (key) {
       element.setAttribute("aria-label", t(key));
     }
   });
 
   document.querySelectorAll<HTMLImageElement>("[data-i18n-alt]").forEach((element) => {
-    const key = element.dataset.i18nAlt as TranslationKey | undefined;
+    const key = element.dataset.i18nAlt as MessageKey | undefined;
     if (key) {
       element.alt = t(key);
     }
   });
 
-  elements.languageEn.classList.toggle("is-active", state.language === "en");
-  elements.languageZh.classList.toggle("is-active", state.language === "zh");
-  elements.languageEn.setAttribute("aria-pressed", String(state.language === "en"));
-  elements.languageZh.setAttribute("aria-pressed", String(state.language === "zh"));
   elements.appVersion.textContent = APP_VERSION;
   if (state.updateStatus) {
     renderUpdateStatus(t(state.updateStatus.key, state.updateStatus.values), state.updateStatus.tone);
@@ -699,15 +487,6 @@ function applyTranslations() {
   updateToolActionButton();
   if (state.releaseNotesOpen) {
     renderReleaseNotes();
-  }
-}
-
-function setLanguage(language: Language) {
-  state.language = language;
-  localStorage.setItem("yt-dlp-tauri-language", language);
-  applyTranslations();
-  if (!state.metadata) {
-    renderEmptyPreview(t("preview.emptyStart"));
   }
 }
 
@@ -772,7 +551,7 @@ function setReleaseNotesOpen(isOpen: boolean) {
 }
 
 function renderReleaseNotes() {
-  const notes = releaseNotesForVersion(changelogMarkdown, APP_VERSION, state.language);
+  const notes = releaseNotesForVersion(changelogMarkdown, APP_VERSION);
   const items = notes?.items.length ? notes.items : [t("releaseNotes.empty")];
 
   elements.releaseNotesVersion.textContent = t("releaseNotes.version", { version: `v${APP_VERSION}` });
@@ -798,8 +577,6 @@ function bindEvents() {
   elements.settingsToggle.addEventListener("click", () => setSettingsOpen(true));
   elements.settingsClose.addEventListener("click", () => setSettingsOpen(false));
   elements.settingsBackdrop.addEventListener("click", () => setSettingsOpen(false));
-  elements.languageEn.addEventListener("click", () => setLanguage("en"));
-  elements.languageZh.addEventListener("click", () => setLanguage("zh"));
   elements.toolSourceManaged.addEventListener("click", () => void setToolchainSource("managed"));
   elements.toolSourceLocal.addEventListener("click", () => void setToolchainSource("local"));
   elements.chooseLocalYtDlp.addEventListener("click", () => void chooseLocalTool("yt-dlp"));
@@ -1604,13 +1381,13 @@ function renderToolchainSource() {
   const isLocal = state.toolchainSource === "local";
   const isHomebrew = state.platform.managedProvider === "homebrew";
   const managedLabel =
-    isHomebrew && state.language === "en"
+    isHomebrew
       ? state.platform.sourceLabels.managed
-      : t(isHomebrew ? "settings.homebrewTools" : "settings.managedTools");
+      : t("settings.managedTools");
   const localLabel =
-    isHomebrew && state.language === "en"
+    isHomebrew
       ? state.platform.sourceLabels.local
-      : t(isHomebrew ? "settings.customTools" : "settings.localTools");
+      : t("settings.localTools");
 
   elements.toolSourceManaged.textContent = managedLabel;
   elements.toolSourceLocal.textContent = localLabel;
@@ -1769,7 +1546,7 @@ function supportsManagedAction(action: ToolAction): boolean {
   return state.platform.capabilities[action];
 }
 
-function toolActionStatusKey(action: ToolAction | null): TranslationKey {
+function toolActionStatusKey(action: ToolAction | null): MessageKey {
   if (action === "reinstall") {
     return "settings.reinstallingTools";
   }
@@ -1914,7 +1691,7 @@ function renderUpdateStatus(message: string, tone: UpdateTone) {
   elements.updateStatus.className = `update-status is-${tone}`;
 }
 
-function setUpdateStatus(key: TranslationKey, tone: UpdateTone, values: Record<string, string | number> = {}) {
+function setUpdateStatus(key: MessageKey, tone: UpdateTone, values: Record<string, string | number> = {}) {
   state.updateStatus = { key, values, tone };
   renderUpdateStatus(t(key, values), tone);
 }
@@ -1935,7 +1712,7 @@ function updateGithubAccessButtons() {
 
 function logEvent(message: string) {
   const row = document.createElement("li");
-  row.textContent = `${new Date().toLocaleTimeString()} ${message}`;
+  row.textContent = `${new Date().toLocaleTimeString("en")} ${message}`;
   elements.events.prepend(row);
   while (elements.events.children.length > 8) {
     elements.events.lastElementChild?.remove();
@@ -1947,7 +1724,7 @@ function formatGithubRateLimitReset(epochSeconds?: number) {
     return t("updates.later");
   }
 
-  return new Intl.DateTimeFormat(state.language === "zh" ? "zh-CN" : "en", {
+  return new Intl.DateTimeFormat("en", {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",

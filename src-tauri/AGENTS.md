@@ -2,8 +2,8 @@
 
 | File | Purpose |
 | --- | --- |
-| `Cargo.lock` | Locks Rust dependencies including direct OS randomness; See change: aria2c-rpc-progress. Sets application version 0.1.14; See change: native-fragment-parallelism. |
-| `Cargo.toml` | Declares Rust package with damageboy repository and original author attribution; See change: aria2c-rpc-progress. See change: owned-toolchain. Sets application version 0.1.14; See change: native-fragment-parallelism. |
+| `Cargo.lock` | Locks Rust dependencies including direct OS randomness; See change: aria2c-rpc-progress. Sets application version 0.1.115; See change: native-fragment-parallelism. See change: english-only-app. |
+| `Cargo.toml` | Declares Rust package with damageboy repository and original author attribution; See change: aria2c-rpc-progress. See change: owned-toolchain. Sets application version 0.1.115; See change: native-fragment-parallelism. See change: english-only-app. |
 | `platform-toolchains.json` | Declares supported platform providers and required Homebrew formulas including aria2; See change: aria2c-required-tool. |
-| `tauri.conf.json` | Uses damageboy bundle identity and includes manifest/platform resources; See change: owned-toolchain. Sets application version 0.1.14; See change: native-fragment-parallelism. |
+| `tauri.conf.json` | Uses damageboy bundle identity and includes manifest/platform resources; See change: owned-toolchain. Sets application version 0.1.115; See change: native-fragment-parallelism. See change: english-only-app. |
 | `tools-manifest.json` | Pins five Windows tools to self-contained toolchain-20260912.1 with unchanged source/member digests; See change: owned-toolchain. See change: toolchain-baseline-20260912. |

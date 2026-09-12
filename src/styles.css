@@ -127,15 +127,6 @@ h3 {
   gap: 10px;
 }
 
-.language-toggle {
-  display: inline-flex;
-  min-height: 36px;
-  padding: 3px;
-  border: 1px solid var(--stroke);
-  border-radius: var(--radius);
-  background: color-mix(in oklch, var(--surface), var(--page) 40%);
-}
-
 .segment {
   min-width: 42px;
   border: 0;
@@ -974,10 +965,6 @@ progress::-webkit-progress-value {
   .tool-actions {
     display: grid;
     grid-template-columns: 1fr;
-    width: 100%;
-  }
-
-  .language-toggle {
     width: 100%;
   }
 

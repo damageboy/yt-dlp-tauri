@@ -16,13 +16,6 @@ test("extractReleaseNotes returns only the requested changelog section", () => {
 
 ## 0.1.1 - 2026-05-26
 
-### 中文
-
-- 修复缩略图。
-- 改进 release notes。
-
-### English
-
 - Fixed thumbnails.
 - Improved release notes.
 
@@ -34,13 +27,6 @@ test("extractReleaseNotes returns only the requested changelog section", () => {
   assert.equal(
     extractReleaseNotes(changelog, "v0.1.1"),
     `## 0.1.1 - 2026-05-26
-
-### 中文
-
-- 修复缩略图。
-- 改进 release notes。
-
-### English
 
 - Fixed thumbnails.
 - Improved release notes.
@@ -55,27 +41,24 @@ test("extractReleaseNotes fails when a version section is missing", () => {
   );
 });
 
-test("extractReleaseNotes requires bilingual release sections", () => {
+test("extractReleaseNotes rejects empty release sections", () => {
   const changelog = `
 # Changelog
 
 ## 0.1.1 - 2026-05-26
-
-- Fixed thumbnails.
 `;
 
-  assert.throws(() => extractReleaseNotes(changelog, "v0.1.1"), /must include ### 中文 and ### English/);
+  assert.throws(() => extractReleaseNotes(changelog, "v0.1.1"), /is empty/);
 });
 
-test("production changelog release notes are bilingual", () => {
+test("production changelog yields release-note bullets", () => {
   const packageVersion = JSON.parse(readFileSync("package.json", "utf8")).version;
   const releaseNotes = extractReleaseNotes(
     readFileSync("CHANGELOG.md", "utf8"),
     `v${packageVersion}`,
   );
 
-  assert.match(releaseNotes, /^### 中文$/m);
-  assert.match(releaseNotes, /^### English$/m);
+  assert.match(releaseNotes, /^- \S/m);
 });
 
 test("application release versions stay synchronized", () => {

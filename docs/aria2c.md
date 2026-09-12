@@ -17,7 +17,7 @@ The existing application data directory contains `state/aria2c.json`:
 
 Rust rejects unsupported schemas, unknown fields, relative selected paths and invalid numbers. Missing state uses defaults; malformed state uses disabled defaults and reports its load error. A successful save writes a same-directory temporary file, syncs it, and atomically replaces the destination before updating memory. Failed validation or replacement preserves the previous saved state.
 
-The frontend keeps a draft for usage and parallelism until Save. Selecting a custom executable saves immediately; the shared Use PATH resets executable overrides. Failed saves retain edits, and unrelated AppState refreshes preserve dirty drafts. English and Chinese copy describe the same controls.
+The frontend keeps a draft for usage and parallelism until Save. Selecting a custom executable saves immediately; the shared Use PATH resets executable overrides. Failed saves retain edits, and unrelated AppState refreshes preserve dirty drafts. English help describes both download paths.
 
 ## Discovery
 
@@ -50,7 +50,7 @@ All downloads add `--concurrent-fragments N` before the URL, using the same save
 
 Metadata extraction verifies required aria2c availability without adding downloader arguments. Protocol eligibility remains with yt-dlp: versions from 2026.06.09 no longer use aria2c for HLS/DASH. Native fallback uses the same saved fragment concurrency even when aria2c is checked. Existing indeterminate progress remains available when numeric updates are absent.
 
-`index.html` supplies the Toolchain toggle, always-editable-when-idle parallelism input and static English help; `src/main.ts` supplies matching English/Chinese help. Both describe shared parallelism for native fragments and aria2c. See change: native-fragment-parallelism.
+`index.html` supplies the Toolchain toggle, always-editable-when-idle parallelism input and static English help; `src/main.ts` supplies matching English help. Both describe shared parallelism for native fragments and aria2c. See change: native-fragment-parallelism.
 
 Unix downloads own a process group. Cancellation signals TERM, waits up to two seconds, then uses KILL if members remain. Windows enumerates descendants and uses `taskkill /T /F`, including when the parent has already exited. Cancellation and spawn registration share a mutex, as do cancellation and the final completion decision. The group stays registered during cancellation cleanup.
 
@@ -68,7 +68,7 @@ cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 
 Rust tests use temporary native executables without requiring aria2c. They cover version validation, Homebrew timeout, path discovery, save/reload/recovery, command construction, early/late cancellation, and TERM-resistant child cleanup on Unix. Frontend tests cover invalid inputs, failed saves, dirty drafts.
 
-Native acceptance uses an isolated app state directory and a controlled HTTP range server. Compare the downloaded file's checksum with the source for N=1 and N=16, capture the actual aria2c invocation, cancel an active transfer and check that both processes exit, then start another transfer. Also verify saving, restarting, missing-executable recovery, both languages and Finder-style PATH discovery. A native Windows run is required to claim Windows process behavior verified.
+Native acceptance uses an isolated app state directory and a controlled HTTP range server. Compare the downloaded file's checksum with the source for N=1 and N=16, capture the actual aria2c invocation, cancel an active transfer and check that both processes exit, then start another transfer. Also verify saving, restarting, missing-executable recovery, English UI and Finder-style PATH discovery. A native Windows run is required to claim Windows process behavior verified.
 
 ### macOS results (2026-09-10)
 

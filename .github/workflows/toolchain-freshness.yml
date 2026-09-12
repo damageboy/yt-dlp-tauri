@@ -154,8 +154,7 @@ jobs:
           git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
           git switch -c "$branch"
           git add toolchain-lock.json src-tauri/tools-manifest.json TOOLCHAIN_CHANGELOG.md
-          git commit -m "chore: refresh ${{ matrix.source }} toolchain source" \
-            -m "chore: 刷新 ${{ matrix.source }} 工具链来源"
+          git commit -m "chore: refresh ${{ matrix.source }} toolchain source"
           git fetch --prune origin "+refs/heads/${branch}:refs/remotes/origin/${branch}" || true
           git push --force-with-lease origin "HEAD:refs/heads/${branch}"
 

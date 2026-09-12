@@ -1,5 +1,3 @@
-export type ReleaseNotesLanguage = "en" | "zh";
-
 export type ReleaseNotes = {
   version: string;
   items: string[];
@@ -12,25 +10,16 @@ export function shouldShowReleaseNotes(lastSeenVersion: string | null | undefine
   return normalizeVersion(lastSeenVersion) !== normalizeVersion(currentVersion);
 }
 
-export function releaseNotesForVersion(markdown: string, version: string, language: ReleaseNotesLanguage): ReleaseNotes | null {
+export function releaseNotesForVersion(markdown: string, version: string): ReleaseNotes | null {
   const section = versionSection(markdown, version);
   if (!section) {
     return null;
   }
 
-  const languageHeading = language === "zh" ? "中文" : "English";
   const lines = section.split(/\r?\n/);
-  const headingIndex = lines.findIndex((line) => line.trim() === `### ${languageHeading}`);
-  if (headingIndex < 0) {
-    return null;
-  }
-
   const items: string[] = [];
-  for (const line of lines.slice(headingIndex + 1)) {
+  for (const line of lines) {
     const trimmed = line.trim();
-    if (trimmed.startsWith("### ") || trimmed.startsWith("## ")) {
-      break;
-    }
     if (trimmed.startsWith("- ")) {
       items.push(stripTerminalSentencePunctuation(trimmed.slice(2).trim()));
     }
@@ -45,10 +34,6 @@ export function releaseNotesForVersion(markdown: string, version: string, langua
 export function stripTerminalSentencePunctuation(text: string) {
   const trailingWhitespace = text.match(/\s*$/)?.[0] ?? "";
   let body = text.slice(0, text.length - trailingWhitespace.length);
-
-  while (body.endsWith("。") || body.endsWith("．")) {
-    body = body.slice(0, -1);
-  }
 
   if (body.endsWith(".") && !body.endsWith("...")) {
     body = body.slice(0, -1);
