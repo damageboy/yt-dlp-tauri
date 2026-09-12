@@ -1,7 +1,7 @@
 {
   "schemaVersion": 4,
-  "revision": "20260911.1",
-  "retrievedAtUtc": "2026-09-11T16:00:35.240Z",
+  "revision": "20260912.1",
+  "retrievedAtUtc": "2026-09-12T06:59:59.801Z",
   "targets": [
     {
       "target": "win-x64",
@@ -9,7 +9,7 @@
         {
           "name": "yt-dlp",
           "path": "Tools/win-x64/yt-dlp/yt-dlp.exe",
-          "sourceUrl": "https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-20260824.1/yt-dlp-2026.08.19-yt-dlp-66674953fe251b89.exe",
+          "sourceUrl": "https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-20260912.1/yt-dlp-2026.08.19-yt-dlp-66674953fe251b89.exe",
           "sourceSize": 17840399,
           "sourceSha256": "66674953fe251b89f4d08c5f0e35e0728679bd67ab3d7d05c0562af101dd3e7a",
           "version": "2026.08.19",
@@ -20,7 +20,7 @@
         {
           "name": "ffmpeg",
           "path": "Tools/win-x64/ffmpeg/bin/ffmpeg.exe",
-          "sourceUrl": "https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-20260810.1/ffmpeg-windows-autobuild-2026-07-31-16-16-ffmpeg-N-125875-g5d4d3bdc61-win64-gpl-47f131b7a83c9ddc.zip",
+          "sourceUrl": "https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-20260912.1/ffmpeg-windows-autobuild-2026-07-31-16-16-ffmpeg-N-125875-g5d4d3bdc61-win64-gpl-47f131b7a83c9ddc.zip",
           "sourceSize": 169718040,
           "sourceSha256": "47f131b7a83c9ddc5f25d50e890f2a40201a5402b8fdb8cb31f5dd6bd8e51e45",
           "version": "autobuild-2026-07-31-16-16",
@@ -32,7 +32,7 @@
         {
           "name": "ffprobe",
           "path": "Tools/win-x64/ffmpeg/bin/ffprobe.exe",
-          "sourceUrl": "https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-20260810.1/ffmpeg-windows-autobuild-2026-07-31-16-16-ffmpeg-N-125875-g5d4d3bdc61-win64-gpl-47f131b7a83c9ddc.zip",
+          "sourceUrl": "https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-20260912.1/ffmpeg-windows-autobuild-2026-07-31-16-16-ffmpeg-N-125875-g5d4d3bdc61-win64-gpl-47f131b7a83c9ddc.zip",
           "sourceSize": 169718040,
           "sourceSha256": "47f131b7a83c9ddc5f25d50e890f2a40201a5402b8fdb8cb31f5dd6bd8e51e45",
           "version": "autobuild-2026-07-31-16-16",
@@ -44,7 +44,7 @@
         {
           "name": "deno",
           "path": "Tools/win-x64/deno/deno.exe",
-          "sourceUrl": "https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-20260810.1/deno-v2.9.5-deno-x86_64-pc-windows-msvc-171efab55ac6b988.zip",
+          "sourceUrl": "https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-20260912.1/deno-v2.9.5-deno-x86_64-pc-windows-msvc-171efab55ac6b988.zip",
           "sourceSize": 42691248,
           "sourceSha256": "171efab55ac6b9881fd53ee4c20f8bf3bb1340ffc618483746909014db12216a",
           "version": "2.9.5",
@@ -56,7 +56,7 @@
         {
           "name": "aria2c",
           "path": "Tools/win-x64/aria2c/aria2c.exe",
-          "sourceUrl": "https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-20260911.1/aria2-1.37.0-aria2-1.37.0-win-64bit-build1-67d015301eef0b61.zip",
+          "sourceUrl": "https://github.com/damageboy/yt-dlp-tauri/releases/download/toolchain-20260912.1/aria2-1.37.0-aria2-1.37.0-win-64bit-build1-67d015301eef0b61.zip",
           "sourceSize": 2475379,
           "sourceSha256": "67d015301eef0b612191212d564c5bb0a14b5b9c4796b76454276a4d28d9b288",
           "version": "1.37.0",
