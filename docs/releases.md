@@ -9,3 +9,7 @@ Repository: [damageboy/yt-dlp-tauri](https://github.com/damageboy/yt-dlp-tauri).
 - The Release workflow supports manual preflight builds: leave `publish` false and select a `ref` (default `master`). To retry a tagged publication, set `publish` true and supply the existing version `tag`.
 - Windows installs all five tools from owned release assets. Every Windows app release performs a clean toolchain install, version/compatibility probes and the real aria2 RPC download lifecycle before packaging. Toolchain releases share this repository, use `toolchain-*` tags, and are prereleases excluded from Latest. See [ownership and provenance](toolchain-ownership.md).
 - When a push also updates the toolchain, the Windows release job waits up to 25 minutes for that exact revision and matching manifest digest before installing it. Missing or mismatched publication blocks the app release.
+
+## v0.1.14
+
+Application version is synchronized in root `package.json`, root `package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, and `src-tauri/tauri.conf.json`. Root `CHANGELOG.md` contains matching English and Chinese release notes. This release adds shared native fragment parallelism and uses toolchain baseline `20260912.1`. See change: native-fragment-parallelism.

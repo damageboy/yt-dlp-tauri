@@ -2,21 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 0.1.14 - 2026-09-12
 
 ### 中文
 
-- macOS 新增 Homebrew 受管工具模式；仅在 Homebrew 已存在时安装、更新或重新安装经过验证的 `yt-dlp`、`ffmpeg` 和 `deno` formula，绝不静默安装 Homebrew。
+- 所有下载均传递 `--concurrent-fragments N`，使用已保存的并行度（默认 16）；即使启用 aria2c 后回退到原生 HLS/DASH 下载，也保持并行下载。
+- 启用 aria2c 时，继续使用相同的并行度及经过身份验证的 RPC 进度；更新设置帮助文字以说明两种下载方式。
+- Windows 受管工具链使用项目托管的 `20260912.1` 基线，包含 yt-dlp、FFmpeg、FFprobe、Deno 和 aria2c。
+
+- macOS 新增 Homebrew 受管工具模式；仅在 Homebrew 已存在时安装、更新或重新安装经过验证的 `yt-dlp`、`ffmpeg`、`deno` 和 `aria2` formula，绝不静默安装 Homebrew。
 - macOS Custom 模式支持无扩展名的绝对可执行文件路径，并通过继承的 `PATH`、`/opt/homebrew/bin` 和 `/usr/local/bin` 提供对 Finder 启动安全的工具发现。
 - 下载目录、应用状态、日志和文件夹打开操作改用原生 macOS 路径，同时保留现有 Windows 路径行为。
-- 支持构建未签名且未经过 notarization 的本地 macOS `.app` 和 `.dmg` bundle，并新增 macOS CI 原生构建验证；公开发布的 release 仍仅支持 Windows。
+- 发布 Windows x64 安装包及 macOS Apple Silicon / Intel `.dmg`，并在 CI 中验证安装产物；安装包未签名，macOS 未经过 notarization。
 
 ### English
 
-- Added Homebrew-managed tools on macOS, with install, update, and reinstall limited to validated `yt-dlp`, `ffmpeg`, and `deno` formulas when Homebrew already exists; the app never installs Homebrew silently.
+- Always pass `--concurrent-fragments N` using saved parallelism (default 16), including native HLS/DASH fallback while aria2c is enabled.
+- Keep aria2c parallelism and authenticated RPC progress when enabled, with updated Settings help explaining both download paths.
+- Use the self-contained, project-hosted `20260912.1` Windows toolchain baseline with yt-dlp, FFmpeg, FFprobe, Deno, and aria2c.
+
+- Added Homebrew-managed tools on macOS, with install, update, and reinstall limited to validated `yt-dlp`, `ffmpeg`, `deno`, and `aria2` formulas when Homebrew already exists; the app never installs Homebrew silently.
 - Added extensionless absolute executable paths in macOS Custom mode and Finder-safe discovery through the inherited `PATH`, `/opt/homebrew/bin`, and `/usr/local/bin`.
 - Switched download, application state, log, and folder-opening behavior to native macOS paths while preserving existing Windows paths.
-- Added unsigned and unnotarized local macOS `.app` and `.dmg` bundles plus native macOS CI build verification; published releases remain Windows-only.
+- Publish Windows x64 installers and macOS Apple Silicon / Intel disk images with CI verification. Installers are unsigned and macOS builds are not notarized.
 
 ## 0.1.13 - 2026-07-14
 
