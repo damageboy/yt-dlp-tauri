@@ -46,7 +46,11 @@ aria2c:-j N -x N -s N --enable-rpc=true --rpc-listen-all=false --rpc-listen-port
 
 Arguments never pass through a shell. No raw argument field is provided. The same N sets concurrent items (`-j`), connections per server per item (`-x`) and splits (`-s`); this is not a total connection cap or an application-level video queue. yt-dlp can print its defaults before the overriding arguments; the generated user overrides still apply.
 
-Metadata extraction verifies required aria2c availability without adding downloader arguments. Disabled downloads retain their previous arguments. Protocol eligibility remains with yt-dlp, so enabling aria2c does not prove every selected format uses it. Existing indeterminate progress remains available when numeric updates are absent.
+All downloads add `--concurrent-fragments N` before the URL, using the same saved parallelism value (default 16). This controls simultaneous native HLS/DASH fragment downloads; it does not split a direct HTTP file into multiple transfers. When Use aria2c is unchecked, no aria2c downloader arguments or RPC monitor are added.
+
+Metadata extraction verifies required aria2c availability without adding downloader arguments. Protocol eligibility remains with yt-dlp: versions from 2026.06.09 no longer use aria2c for HLS/DASH. Native fallback uses the same saved fragment concurrency even when aria2c is checked. Existing indeterminate progress remains available when numeric updates are absent.
+
+`index.html` supplies the Toolchain toggle, always-editable-when-idle parallelism input and static English help; `src/main.ts` supplies matching English/Chinese help. Both describe shared parallelism for native fragments and aria2c. See change: native-fragment-parallelism.
 
 Unix downloads own a process group. Cancellation signals TERM, waits up to two seconds, then uses KILL if members remain. Windows enumerates descendants and uses `taskkill /T /F`, including when the parent has already exited. Cancellation and spawn registration share a mutex, as do cancellation and the final completion decision. The group stays registered during cancellation cleanup.
 

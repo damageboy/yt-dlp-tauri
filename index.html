@@ -213,7 +213,7 @@
             <span data-i18n="aria2c.parallel">Parallelism</span>
             <input id="aria2c-parallel" type="number" min="1" max="16" step="1" value="16" aria-describedby="aria2c-parallel-hint aria2c-status" />
           </label>
-          <p id="aria2c-parallel-hint" class="aria2c-help" data-i18n="aria2c.parallelHint">Sets concurrent items, connections per server per item, and splits to this value. This is not a total connection limit or the number of simultaneous videos.</p>
+          <p id="aria2c-parallel-hint" class="aria2c-help" data-i18n="aria2c.parallelHint">Sets simultaneous HLS/DASH segment downloads. When aria2c is used, also sets its concurrent items, connections per server per item, and splits. This is not the number of simultaneous videos.</p>
           <p id="aria2c-status" class="aria2c-status" role="status" aria-live="polite"></p>
           <button id="save-aria2c" class="button primary compact" type="button" data-i18n="aria2c.save">Save</button>
         </div>

@@ -134,8 +134,12 @@ pub fn aria2c_downloader_args(
     rpc: Option<&crate::aria2c_rpc::RpcConfig>,
 ) -> Result<Vec<OsString>, String> {
     config.validate()?;
+    let native_args = vec![
+        "--concurrent-fragments".into(),
+        config.parallel_connections.to_string().into(),
+    ];
     if !config.enabled {
-        return Ok(Vec::new());
+        return Ok(native_args);
     }
     if !status.available {
         return Err(status.error.clone().unwrap_or_else(|| {
@@ -152,12 +156,14 @@ pub fn aria2c_downloader_args(
         options.push(' ');
         options.push_str(&rpc.arguments());
     }
-    Ok(vec![
+    let mut args = vec![
         "--downloader".into(),
         path.as_os_str().to_owned(),
         "--downloader-args".into(),
         options.into(),
-    ])
+    ];
+    args.extend(native_args);
+    Ok(args)
 }
 
 fn failure(
@@ -613,9 +619,13 @@ mod tests {
             ..missing
         };
         let status = require_aria2c(&available).unwrap();
-        assert!(aria2c_downloader_args(&available, &status, None)
-            .unwrap()
-            .is_empty());
+        assert_eq!(
+            aria2c_downloader_args(&available, &status, None).unwrap(),
+            vec![
+                OsString::from("--concurrent-fragments"),
+                OsString::from("16")
+            ]
+        );
         assert_eq!(status.tool_status().availability, "available");
     }
 
@@ -726,14 +736,28 @@ mod tests {
                     } else {
                         "aria2c:-j 16 -x 16 -s 16"
                     }),
+                    OsString::from("--concurrent-fragments"),
+                    OsString::from(if n == 1 { "1" } else { "16" }),
                 ]
             );
             assert!(aria2c_downloader_args(&config, &Aria2cStatus::default(), None).is_err());
         }
-        assert!(
-            aria2c_downloader_args(&Aria2cConfig::default(), &Aria2cStatus::default(), None)
-                .unwrap()
-                .is_empty()
-        );
+    }
+
+    #[test]
+    fn disabled_aria2c_uses_saved_native_fragment_parallelism() {
+        for (n, expected) in [(1, "1"), (8, "8"), (16, "16")] {
+            let config = Aria2cConfig {
+                parallel_connections: n,
+                ..Default::default()
+            };
+            assert_eq!(
+                aria2c_downloader_args(&config, &Aria2cStatus::default(), None).unwrap(),
+                vec![
+                    OsString::from("--concurrent-fragments"),
+                    OsString::from(expected)
+                ]
+            );
+        }
     }
 }

@@ -363,10 +363,16 @@ fn enabled_arguments_preserve_parallelism_and_disabled_arguments_ignore_rpc() {
     assert!(options.starts_with("aria2c:-j 4 -x 4 -s 4 "));
     assert!(options.contains(&format!("--rpc-listen-port={}", rpc.port)));
     assert!(options.contains(&format!("--rpc-secret={}", rpc.secret)));
+    assert_eq!(args[4], "--concurrent-fragments");
+    assert_eq!(args[5], "4");
     config.enabled = false;
-    assert!(aria2c_downloader_args(&config, &status, Some(&rpc))
-        .unwrap()
-        .is_empty());
+    assert_eq!(
+        aria2c_downloader_args(&config, &status, Some(&rpc)).unwrap(),
+        vec![
+            std::ffi::OsString::from("--concurrent-fragments"),
+            std::ffi::OsString::from("4")
+        ]
+    );
 }
 
 #[test]

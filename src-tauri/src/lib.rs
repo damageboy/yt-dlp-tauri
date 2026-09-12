@@ -2534,7 +2534,7 @@ mod tests {
     }
 
     #[test]
-    fn download_command_preserves_disabled_argv_and_adds_aria2c_before_url() {
+    fn download_command_passes_selected_downloader_parallelism_before_url() {
         let root = crate::test_support::TestDirectory::new();
         let exe = root.fixture("capture");
         let tools = ToolPaths {
@@ -2559,16 +2559,17 @@ mod tests {
             "--print".into(), "after_move:yt-dlp-tauri-output:%(filepath)s".into(), "--progress".into(),
         ];
         for enabled in [false, true] {
-            let extra: Vec<std::ffi::OsString> = if enabled {
-                vec![
-                    "--downloader".into(),
-                    exe.as_os_str().to_owned(),
-                    "--downloader-args".into(),
-                    "aria2c:-j 1 -x 1 -s 1".into(),
-                ]
-            } else {
-                vec![]
+            let config = Aria2cConfig {
+                enabled,
+                parallel_connections: 1,
+                ..Default::default()
             };
+            let status = aria2c::Aria2cStatus {
+                available: true,
+                executable_path: Some(exe.clone()),
+                ..Default::default()
+            };
+            let extra = aria2c::aria2c_downloader_args(&config, &status, None).unwrap();
             let output = video_download_command(&tools, &root.0, &request, None, &extra)
                 .output()
                 .unwrap();
@@ -2587,6 +2588,7 @@ mod tests {
                     "aria2c:-j 1 -x 1 -s 1".into(),
                 ]);
             }
+            expected.extend(["--concurrent-fragments".into(), "1".into()]);
             expected.push("https://example.test/video".into());
             assert_eq!(actual, expected);
         }
