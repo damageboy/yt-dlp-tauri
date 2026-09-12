@@ -23,7 +23,9 @@ The old aria2 release has no GitHub asset digest. Its explicitly reviewed archiv
 
 All 42 assets from four original toolchain revisions were downloaded, checked against their published SHA-256 and sizes, uploaded to matching tags in this repository, then downloaded again and checked. [The inventory](toolchain-migration-inventory.json) records every filename, size and hash.
 
-Historical manifests and reports remain byte-identical archival evidence, including their original provenance URLs. They are not active channel manifests and cannot be promoted by the owned runtime. Revision `20260911.1` changes runtime custody and adds aria2c while reusing the copied Deno, FFmpeg and yt-dlp archives.
+Revision `20260911.1` changed runtime custody and added aria2c while reusing copied Deno, FFmpeg and yt-dlp archives. Revision `20260912.1` establishes a self-contained baseline: all four packages supplying five tools live in `toolchain-20260912.1`, with unchanged versions, archive hashes and executable hashes. Its generated manifest and lock reference no older toolchain releases.
+
+After native validation, channel promotion and publication of installers containing the new manifest, the five older toolchain revision releases are retired. The committed migration inventory remains a historical record of the original transfer, not a list of available downloads. License and provenance evidence for the selected binaries accompanies the new baseline. Existing installations should use **Check tool updates** to activate the new baseline before reinstalling tools from an older cached manifest.
 
 ## Publication contract
 
@@ -38,9 +40,9 @@ Historical manifests and reports remain byte-identical archival evidence, includ
 | File | Contract |
 | --- | --- |
 | `toolchain-policy.json` | Reviewed source selection, owned archive destination and pinned aria2 hash |
-| `toolchain-lock.json` | Exact selected upstream and mirror identities; archive/member hashes |
-| `src-tauri/tools-manifest.json` | Generated owned Windows runtime URLs and all five required tools |
-| `TOOLCHAIN_CHANGELOG.md` | Tool revision and custody changes independent of app version |
+| `toolchain-lock.json` | Pins unchanged upstream bytes and all mirror assets to self-contained baseline; See change: toolchain-baseline-20260912. |
+| `src-tauri/tools-manifest.json` | Generates five Windows tools from baseline release only; See change: toolchain-baseline-20260912. |
+| `TOOLCHAIN_CHANGELOG.md` | Records baseline consolidation without tool version changes; See change: toolchain-baseline-20260912. |
 | `THIRD-PARTY-NOTICES.md` | Binary origins, applicable licenses and corresponding-source references |
 | `README.md`, `README_zh.md` | Installation, owned hosting and maintenance instructions |
 

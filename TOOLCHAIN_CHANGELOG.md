@@ -2,6 +2,14 @@
 
 Tool updates are published independently from application releases
 
+## 20260912.1 - 2026-09-12
+
+- Self-contained baseline: all four packages for five tools are hosted in this revision; versions and binary hashes are unchanged.
+- `aria2`: `1.37.0` asset metadata updated
+- `deno`: `v2.9.5` asset metadata updated
+- `ffmpeg-windows`: `autobuild-2026-07-31-16-16` asset metadata updated
+- `yt-dlp`: `2026.08.19` asset metadata updated
+
 ## 20260911.1 - 2026-09-11
 
 - `aria2`: added `1.37.0`

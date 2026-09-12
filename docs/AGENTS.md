@@ -7,4 +7,4 @@
 | `ffmpeg-redistribution.md` | Requires owned mirror and complete source evidence; removes upstream fallback; See change: owned-toolchain. |
 | `releases.md` | Documents master/tag installers and native owned Windows toolchain/RPC gate; See change: owned-toolchain. |
 | `toolchain-migration-inventory.json` | Records 42 byte-identical historical release assets with SHA-256 and source release IDs; See change: owned-toolchain. |
-| `toolchain-ownership.md` | Records binary origins, migration custody, same-repo publication and root-file contracts; See change: owned-toolchain. |
+| `toolchain-ownership.md` | Records binary origins, migration custody, same-repo publication, self-contained baseline and historical-release retirement; See change: owned-toolchain. See change: toolchain-baseline-20260912. |
