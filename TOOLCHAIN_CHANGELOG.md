@@ -2,6 +2,11 @@
 
 Tool updates are published independently from application releases
 
+## 20261019.1 - 2026-10-19
+
+- `deno`: `v2.9.5` -> `v2.9.7`
+- `ffmpeg-windows`: `autobuild-2026-07-31-16-16` -> `autobuild-2026-09-30-18-57`
+
 ## 20260912.1 - 2026-09-12
 
 - Self-contained baseline: all four packages for five tools are hosted in this revision; versions and binary hashes are unchanged.
